@@ -1,0 +1,133 @@
+# Pre-commit hooks for alberto-research.
+#
+# Install once per clone:  pre-commit install
+# Run against everything:  pre-commit run --all-files
+#
+# The `rev:` fields below are release tags rather than commit SHAs for
+# readability where the exact SHA is not known. Refresh them periodically with
+# `pre-commit autoupdate`, which rewrites every rev to the current tag/SHA.
+default_language_version:
+  python: python3.11
+
+# Fail fast: stop at the first hook that rewrites or rejects files.
+fail_fast: false
+
+repos:
+  # ---------------------------------------------------------------------------
+  # Generic file hygiene
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+        args: ["--allow-multiple-documents"]
+      - id: check-json
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ["--maxkb=500"]
+      - id: detect-private-key
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+
+  # ---------------------------------------------------------------------------
+  # Python linting and formatting
+  #
+  # ruff --fix runs first, then ruff-format. black and isort are kept for
+  # contributors who have them wired into their editors; ruff-format is
+  # black-compatible and both read the same line length from pyproject.toml.
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
+
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
+    hooks:
+      - id: isort
+        args: ["--profile=black", "--line-length=100"]
+
+  # ---------------------------------------------------------------------------
+  # Static typing
+  #
+  # mypy is configured entirely from pyproject.toml, but the path is repeated
+  # explicitly so the hook stays meaningful if the config moves.
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        args: ["--config-file=pyproject.toml", "src/alberto_research"]
+
+  # ---------------------------------------------------------------------------
+  # Security scanning
+  #
+  # B501 is skipped deliberately: the three findings live on the opt-in
+  # shadow-library resolver path and are an accepted, documented risk.
+  # B113 and B608 are documented false positives (bandit cannot resolve a
+  # timeout passed as a function call; the SQL interpolates only a constant
+  # fragment with bound parameters). All three are justified in SECURITY_AUDIT.md.
+  # Every other bandit finding still fails this hook.
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.10
+    hooks:
+      - id: bandit
+        args: ["-c", "pyproject.toml", "-r", "src", "-ll", "-s", "B501,B113,B608"]
+        additional_dependencies: ["bandit[toml]"]
+
+  # ---------------------------------------------------------------------------
+  # Secret scanning
+  #
+  # The default hook inspects staged content only. The history-wide scan is
+  # `manual` because it is slow and needs full git history; run it explicitly:
+  #   pre-commit run gitleaks-detect --hook-stage manual
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.19.0
+    hooks:
+      - id: gitleaks
+        name: gitleaks (staged)
+        entry: gitleaks protect --staged --redacted --verbose
+        language: system
+        pass_filenames: false
+      - id: gitleaks-detect
+        name: gitleaks (full history)
+        entry: gitleaks detect --redacted --verbose
+        language: system
+        pass_filenames: false
+        stages: [manual]
+
+  # ---------------------------------------------------------------------------
+  # Spelling, Markdown and shell
+  # ---------------------------------------------------------------------------
+  - repo: https://github.com/codespell-project/codespell
+    rev: v2.3.0
+    hooks:
+      - id: codespell
+        args: ["--ignore-words-list=ba,nd,te"]
+
+  # markdownlint-cli2 only runs on Markdown files -- the `types` filter keeps
+  # it away from Python, YAML and the Dockerfile.
+  - repo: https://github.com/igorshubovych/markdownlint-cli2
+    rev: v0.14.0
+    hooks:
+      - id: markdownlint-cli2
+        types: [markdown]
+        args: ["--fix"]
+
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.10.0
+    hooks:
+      - id: shellcheck
+        types: [shell]

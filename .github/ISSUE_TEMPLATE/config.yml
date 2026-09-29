@@ -1,0 +1,8 @@
+# Route security reports away from public issue tracking.
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability (private)
+    url: https://github.com/gabriel-affonso/alberto-research/security/advisories/new
+    about: >-
+      Report vulnerabilities privately through GitHub security advisories.
+      Never open a public issue for a suspected vulnerability.

@@ -1,0 +1,132 @@
+name: Bug report
+description: Report a reproducible defect in alberto-research.
+title: "[Bug]: "
+labels:
+  - bug
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to file a bug.
+
+        **Do not report security vulnerabilities here.** See the security
+        contact link on the new-issue page instead.
+
+        Please do not paste credentials, private URLs or full digests of
+        personal data into this form.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight checks
+      description: Confirm the following before filing.
+      options:
+        - label: I searched existing issues and this is not a duplicate.
+          required: true
+        - label: I am running a supported Python version (3.11, 3.12 or 3.13).
+          required: true
+        - label: This is not a security vulnerability (those go through private reporting).
+          required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the actual behaviour.
+      placeholder: When I run `alberto-research ...`, it ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      description: The behaviour you expected instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: >-
+        Minimal, deterministic steps. Include the exact command, any input
+        file, and whether the issue reproduces on a clean checkout.
+      placeholder: |
+        1. Install with `uv pip install -e ".[test]"`
+        2. Run `alberto-research ...`
+        3. Observe ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: traceback
+    attributes:
+      label: Relevant logs or traceback
+      description: >-
+        Paste the full traceback in a fenced code block. Redact tokens, paths
+        containing your username, and any personal data.
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: alberto-research version
+      description: Output of `alberto-research --version` (or the git commit SHA).
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: python-version
+    attributes:
+      label: Python version
+      options:
+        - "3.11"
+        - "3.12"
+        - "3.13"
+        - Other (describe in the additional context field)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other (describe in the additional context field)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Affected component
+      description: Which part of the pipeline is involved?
+      options:
+        - Discovery / providers
+        - DOI resolution
+        - Full-text reading
+        - Deduplication
+        - Synthesis / digest
+        - Zotero sync
+        - Delivery (Notion / newsletter)
+        - CLI
+        - Configuration
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Anything else that helps, such as related issues or workarounds.
+    validations:
+      required: false

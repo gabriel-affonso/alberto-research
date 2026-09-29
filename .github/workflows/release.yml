@@ -1,0 +1,118 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+# id-token/attestations enable keyless (OIDC) publishing and provenance.
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  build:
+    name: Build distributions and SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          # hatch-vcs reads the tag that triggered this run from full history.
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Install Python 3.11
+        run: uv python install 3.11
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      - name: Generate SBOM (CycloneDX)
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: cyclonedx-json
+          output-file: sbom/cyclonedx.json
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom
+          path: sbom/
+          if-no-files-found: error
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    runs-on: ubuntu-latest
+    # NOTE: the `pypi` environment must be configured in repository settings
+    # with required reviewers before this workflow can publish. That gate is
+    # what stops an accidental release.
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      # Trusted Publishing (OIDC) only -- no API token is stored or referenced.
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+
+  attest:
+    name: Attest build provenance
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      attestations: write
+      contents: read
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Attest provenance for distributions
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: "dist/*"
+
+  github-release:
+    name: Create GitHub release
+    needs: publish-pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      # Only runs after PyPI publish succeeds, so the release never points at
+      # artifacts that were not actually shipped.
+      - name: Create release with generated notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/* --generate-notes --verify-tag

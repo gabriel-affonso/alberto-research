@@ -1,0 +1,45 @@
+name: OpenSSF Scorecard
+
+on:
+  schedule:
+    # Weekly, Mondays at 01:30 UTC.
+    - cron: "30 1 * * 1"
+  # Re-run when branch protection changes; that is a scored signal.
+  branch_protection_rule:
+  push:
+    branches:
+      - main
+
+# Read-only by default; the analysis job elevates only what it needs.
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      # upload-sarif needs security-events; publish_results needs id-token.
+      security-events: write
+      id-token: write
+      contents: read
+      actions: read
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          # Scorecard inspects history and branch structure.
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Run Scorecard analysis
+        uses: ossf/scorecard-action@v2.4.0
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # Publishes results to the public OpenSSF API (public repos only).
+          publish_results: true
+
+      - name: Upload SARIF results to code scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: results.sarif

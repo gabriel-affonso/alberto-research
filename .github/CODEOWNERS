@@ -1,0 +1,17 @@
+# Default owner for everything in the repository.
+* @gabriel-affonso
+
+# CI/CD, release automation and repository settings.
+/.github/ @gabriel-affonso
+
+# Package source.
+/src/ @gabriel-affonso
+
+# Documentation site content.
+/docs/ @gabriel-affonso
+
+# Security policy and accepted-risk records.
+/SECURITY.md @gabriel-affonso
+
+# Build configuration, dependencies and tooling configs.
+/pyproject.toml @gabriel-affonso

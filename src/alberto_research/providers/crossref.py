@@ -1,0 +1,99 @@
+from __future__ import annotations
+
+from typing import Any
+
+from alberto_research.enums import AccessLevel
+from alberto_research.models import DiscoveryResult, PaperRecord
+from alberto_research.providers.base import Provider
+
+
+class CrossrefProvider(Provider):
+    name = "crossref"
+    endpoint = "https://api.crossref.org/works"
+
+    def __init__(self, *, article_only: bool = False, **kwargs: Any) -> None:
+        super().__init__(**kwargs)
+        self.article_only = article_only
+
+    def search(self, query: str, *, limit: int, dry_run: bool = False) -> DiscoveryResult:
+        if dry_run:
+            return DiscoveryResult(
+                provider=self.name,
+                query=query,
+                records=(),
+                dry_run=True,
+                provenance={
+                    "endpoint": self.endpoint,
+                    "limit": limit,
+                    "article_only": self.article_only,
+                },
+            )
+        params = {
+            "query": query,
+            "rows": limit,
+            "select": "DOI,title,author,issued,container-title,URL,abstract,type",
+        }
+        if self.article_only:
+            params["filter"] = "type:journal-article"
+        payload = self._request_json(
+            "GET",
+            self.endpoint,
+            params=params,
+        )
+        items = payload.get("message", {}).get("items", [])
+        return DiscoveryResult(
+            provider=self.name,
+            query=query,
+            records=tuple(normalize_crossref_item(item) for item in items),
+            provenance={
+                "endpoint": self.endpoint,
+                "count": len(items),
+                "article_only": self.article_only,
+            },
+        )
+
+
+def normalize_crossref_item(item: dict[str, Any]) -> PaperRecord:
+    title = (item.get("title") or ["Untitled"])[0]
+    authors = tuple(
+        " ".join(part for part in (author.get("given"), author.get("family")) if part)
+        for author in item.get("author", [])
+    )
+    date_parts = _first_date_parts(item.get("issued"))
+    year = int(date_parts[0]) if date_parts else None
+    venue = (item.get("container-title") or [None])[0]
+    access = AccessLevel.ABSTRACT_ONLY if item.get("abstract") else AccessLevel.METADATA_ONLY
+    return PaperRecord(
+        title=title,
+        doi=item.get("DOI"),
+        abstract=item.get("abstract"),
+        authors=authors,
+        venue=venue,
+        publication_year=year,
+        publication_date="-".join(str(part) for part in date_parts) if date_parts else None,
+        document_type=item.get("type"),
+        url=item.get("URL"),
+        external_ids={"crossref_doi": item["DOI"]} if item.get("DOI") else {},
+        access_level=access,
+        provenance={"provider": "crossref", "document_type": item.get("type")},
+    )
+
+
+def _first_date_parts(issued: dict[str, Any] | None) -> list[int]:
+    if not isinstance(issued, dict):
+        return []
+    date_parts = issued.get("date-parts")
+    if not date_parts or not isinstance(date_parts, list):
+        return []
+    first = date_parts[0] if date_parts else []
+    if not isinstance(first, list):
+        return []
+    cleaned: list[int] = []
+    for part in first:
+        if part is None:
+            break
+        try:
+            cleaned.append(int(part))
+        except (TypeError, ValueError):
+            break
+    return cleaned

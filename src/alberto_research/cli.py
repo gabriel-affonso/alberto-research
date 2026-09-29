@@ -1,0 +1,162 @@
+"""Command-line interface for Alberto Research."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import sys
+from collections.abc import Sequence
+
+from alberto_research import __version__
+from alberto_research.config import load_project_config
+from alberto_research.db.connection import connect
+from alberto_research.db.migrations import apply_migrations
+from alberto_research.db.repositories import AlbertoRepository
+from alberto_research.enums import FeedbackType
+from alberto_research.feedback import store_feedback
+from alberto_research.logging import configure_logging
+from alberto_research.notion import NotionAdapter, backfill_digest_readings_to_notion
+from alberto_research.workflow import run_digest_workflow, run_research_workflow
+
+PROG = "alberto-research"
+
+
+def build_parser() -> argparse.ArgumentParser:
+    """Build the argument parser for the ``alberto-research`` command."""
+    parser = argparse.ArgumentParser(
+        prog=PROG,
+        description="Discovery, screening, reading, synthesis and digest of scientific literature.",
+    )
+    parser.add_argument("--version", action="version", version=f"{PROG} {__version__}")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    db = sub.add_parser("db", help="Database maintenance commands.")
+    db_sub = db.add_subparsers(dest="db_command", required=True)
+    migrate = db_sub.add_parser("migrate", help="Apply pending SQLite migrations.")
+    migrate.add_argument("--db")
+
+    config = sub.add_parser("config", help="Project configuration commands.")
+    config_sub = config.add_subparsers(dest="config_command", required=True)
+    validate = config_sub.add_parser("validate", help="Validate a project YAML file.")
+    validate.add_argument("project")
+
+    research = sub.add_parser("research", help="Research workflow commands.")
+    research_sub = research.add_subparsers(dest="research_command", required=True)
+
+    run = research_sub.add_parser("run", help="Run discovery and screening.")
+    run.add_argument("--project", required=True)
+    run.add_argument("--db")
+    run.add_argument("--dry-run", action="store_true")
+
+    digest = research_sub.add_parser("digest", help="Generate the daily digest.")
+    digest.add_argument("--project", required=True)
+    digest.add_argument("--db")
+    digest.add_argument("--output-dir")
+
+    feedback = research_sub.add_parser("feedback", help="Record feedback for a digest item.")
+    feedback.add_argument("--project", required=True)
+    feedback.add_argument("--db")
+    feedback.add_argument("--type", required=True, choices=[item.value for item in FeedbackType])
+    feedback.add_argument("--digest-item-id")
+    feedback.add_argument("--paper-id", type=int)
+    feedback.add_argument("--note")
+
+    notion = sub.add_parser("notion", help="Notion archive commands.")
+    notion_sub = notion.add_subparsers(dest="notion_command", required=True)
+    notion_setup = notion_sub.add_parser("setup", help="Create the Notion archive database.")
+    notion_setup.add_argument("--parent-page-id", required=True)
+    notion_setup.add_argument("--title", default="Alberto Research Library")
+    notion_backfill = notion_sub.add_parser("backfill", help="Backfill readings into Notion.")
+    notion_backfill.add_argument("--db")
+    notion_backfill.add_argument("--project-id")
+
+    return parser
+
+
+def main(argv: Sequence[str] | None = None) -> int:
+    """Run the command-line interface and return a process exit code."""
+    configure_logging()
+    parser = build_parser()
+    args = parser.parse_args(argv)
+
+    if args.command == "db" and args.db_command == "migrate":
+        conn = connect(args.db)
+        applied = apply_migrations(conn)
+        conn.close()
+        print(json.dumps({"applied": applied}))
+        return 0
+
+    if args.command == "config" and args.config_command == "validate":
+        config_data = load_project_config(args.project)
+        print(json.dumps({"ok": True, "project_id": config_data["id"]}))
+        return 0
+
+    if args.command == "research" and args.research_command == "run":
+        run_id = run_research_workflow(
+            project_path=args.project, db_path=args.db, dry_run=args.dry_run
+        )
+        print(json.dumps({"run_id": run_id}))
+        return 0
+
+    if args.command == "research" and args.research_command == "digest":
+        digest_id, path = run_digest_workflow(
+            project_path=args.project, db_path=args.db, output_dir=args.output_dir
+        )
+        print(json.dumps({"digest_id": digest_id, "path": str(path)}))
+        return 0
+
+    if args.command == "research" and args.research_command == "feedback":
+        config_data = load_project_config(args.project)
+        conn = connect(args.db)
+        apply_migrations(conn)
+        repo = AlbertoRepository(conn)
+        repo.upsert_project(config_data, args.project)
+        feedback_id = store_feedback(
+            repo,
+            project_id=config_data["id"],
+            feedback_type=args.type,
+            digest_item_id=args.digest_item_id,
+            paper_id=args.paper_id,
+            note=args.note,
+        )
+        conn.close()
+        print(json.dumps({"feedback_id": feedback_id}))
+        return 0
+
+    if args.command == "notion" and args.notion_command == "setup":
+        database = NotionAdapter().create_article_database(
+            parent_page_id=args.parent_page_id, title=args.title
+        )
+        print(
+            json.dumps(
+                {"database_id": database.database_id, "data_source_id": database.data_source_id}
+            )
+        )
+        return 0
+
+    if args.command == "notion" and args.notion_command == "backfill":
+        conn = connect(args.db)
+        apply_migrations(conn)
+        linked, report = backfill_digest_readings_to_notion(
+            AlbertoRepository(conn), project_id=args.project_id
+        )
+        conn.close()
+        print(
+            json.dumps(
+                {
+                    "linked": linked,
+                    "status": report.status,
+                    "created": report.created,
+                    "updated": report.updated,
+                    "error": report.error,
+                }
+            )
+        )
+        return 0 if report.status not in {"failed", "not_configured"} else 1
+
+    print(f"error: unsupported command: {args.command}", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

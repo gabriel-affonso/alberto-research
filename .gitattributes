@@ -1,0 +1,28 @@
+# Normalize line endings on checkout/commit so a Windows contributor cannot
+# rewrite the whole tree. Text files are stored with LF in the repository.
+* text=auto eol=lf
+
+# Source and config that must always be LF.
+*.py text eol=lf
+*.md text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.sql text eol=lf
+
+# Binary assets: never diff, never touch the bytes.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.ico binary
+*.woff2 binary
+
+# Notebooks are documentation, not library code -- keep them out of the
+# language statistics.
+*.ipynb linguist-documentation
+
+# Built distributions are artifacts, not hand-written source.
+dist/* linguist-generated

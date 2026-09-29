@@ -1,0 +1,42 @@
+# Keep the build context small and free of secrets/local state.
+# Anything not needed to build or run the image is excluded.
+
+# Version control and CI metadata
+.git
+.github
+
+# Virtual environments (the image installs its own)
+.venv
+venv
+
+# Python bytecode and caches
+__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+htmlcov
+
+# Build output
+dist
+build
+*.egg-info
+
+# Local operational data and generated output
+_audit
+output
+newsletters
+data
+*.sqlite*
+
+# Secrets and local environment files -- .env.example is documentation and
+# stays in the context, every real .env is excluded.
+.env*
+!.env.example
+
+# Not needed at build or runtime
+docs
+tests
+
+# OS noise
+.DS_Store

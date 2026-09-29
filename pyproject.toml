@@ -1,0 +1,219 @@
+[build-system]
+requires = ["hatchling>=1.27", "hatch-vcs>=0.4"]
+build-backend = "hatchling.build"
+
+[project]
+name = "alberto-research"
+description = "Scientific research automation: discovery, DOI resolution, full-text reading, synthesis and daily digests."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Gabriel Affonso" }]
+keywords = [
+  "research",
+  "science",
+  "literature-review",
+  "openclaw",
+  "zotero",
+  "notion",
+  "newsletter",
+  "doi",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering",
+  "Typing :: Typed",
+]
+dependencies = [
+  "beautifulsoup4>=4.12,<5",
+  "jsonschema>=4.22,<5",
+  "pypdf>=4.2,<7",
+  "PyYAML>=6.0.1,<7",
+  "requests>=2.31,<3",
+  "urllib3>=2.0,<3",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+# Optional resolvers that fetch articles from shadow libraries. Disabled unless
+# explicitly enabled per project (`enable_scihub`) and installed via this extra.
+# See README "Legal notice" and SECURITY.md before enabling.
+legacy-resolvers = [
+  "curl-cffi>=0.7",
+  "PyPDF2>=3.0,<4",
+  "python-dotenv>=1.0",
+  "telethon>=1.36",
+]
+test = [
+  "pytest>=8",
+  "pytest-cov>=6",
+  "pytest-asyncio>=0.23",
+  "hypothesis>=6.100",
+  "responses>=0.25",
+  "freezegun>=1.5",
+]
+dev = [
+  "alberto-research[test]",
+  "bandit>=1.7",
+  "black>=24.4",
+  "codespell>=2.3",
+  "isort>=5.13",
+  "mutmut>=3.0",
+  "mypy>=1.10",
+  "pip-audit>=2.7",
+  "pre-commit>=3.7",
+  "ruff>=0.6",
+]
+docs = [
+  "mkdocs-material>=9.5",
+  "mkdocstrings[python]>=0.25",
+  "mkdocs-mermaid2-plugin>=1.1",
+]
+
+[project.scripts]
+alberto-research = "alberto_research.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/gabriel-affonso/alberto-research"
+Documentation = "https://gabriel-affonso.github.io/alberto-research/"
+Repository = "https://github.com/gabriel-affonso/alberto-research"
+Issues = "https://github.com/gabriel-affonso/alberto-research/issues"
+Changelog = "https://github.com/gabriel-affonso/alberto-research/blob/main/CHANGELOG.md"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/alberto_research/_version.py"
+
+[tool.hatch.version.raw-options]
+fallback_version = "0.1.0"
+local_scheme = "no-local-version"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/alberto_research"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/alberto_research", "tests", "docs", "examples", "README.md", "LICENSE", "CHANGELOG.md"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+# Generated at build time by hatch-vcs; not hand-edited and not linted.
+extend-exclude = ["src/alberto_research/_version.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "D", "UP", "B", "C4", "SIM", "ARG", "PTH", "RET", "PL", "RUF", "S"]
+ignore = [
+  # Conventional docstring-style conflicts (pydocstyle vs Google style).
+  "D203",
+  "D213",
+  # Missing-docstring rules are relaxed project-wide. Modules and public APIs are
+  # documented; private helpers are not yet, and an inherited codebase of ~4.4k
+  # LOC cannot reach full coverage in one pass. Tracked in ROADMAP.md.
+  "D100",
+  "D101",
+  "D102",
+  "D103",
+  "D104",
+  "D106",
+  "D107",
+  # Function-local imports are intentional: optional dependencies (and the
+  # shadow-library resolvers) must not be imported at module import time.
+  "PLC0415",
+  # Unused arguments are required to satisfy the Resolver/screener interfaces.
+  "ARG002",
+  # S608 flags parameterised SQL whose f-string interpolates a *constant*
+  # fragment only; every user value is a bound parameter. See SECURITY_AUDIT.md
+  # (false positive) — bandit B608 covers the same pattern.
+  "S608",
+  # S501 is the accepted `verify=False` shadow-library risk. It stays visible to
+  # bandit in CI; see SECURITY_AUDIT.md for the author's sign-off requirement.
+  "S501",
+  # Complexity and argument-count thresholds (PLR09xx) and magic-value comparisons
+  # are advisory style metrics, not correctness rules. The inherited workflow and
+  # repository modules legitimately exceed them; enforced via review instead.
+  "PLR0911",
+  "PLR0912",
+  "PLR0913",
+  "PLR0915",
+  "PLR0917",
+  "PLR2004",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "S101", "ARG", "PLR2004", "E501", "PLR0913", "PLR0917", "RUF012", "PTH123", "F841", "PLW0108"]
+# Long single-token literals cannot be wrapped without harming readability:
+# inline CSS for the HTML newsletter, SQL statements, prompt templates and URLs.
+"src/alberto_research/delivery.py" = ["E501"]
+"src/alberto_research/digest.py" = ["E501"]
+"src/alberto_research/db/repositories.py" = ["E501"]
+"src/alberto_research/notion.py" = ["E501"]
+"src/alberto_research/workflow.py" = ["E501"]
+"src/alberto_research/scihub_integration.py" = ["E501"]
+"src/alberto_research/providers/semantic_scholar.py" = ["E501"]
+
+[tool.black]
+line-length = 100
+target-version = ["py311", "py312", "py313"]
+
+[tool.isort]
+profile = "black"
+line_length = 100
+known_first_party = ["alberto_research"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unreachable = true
+files = ["src/alberto_research"]
+
+[[tool.mypy.overrides]]
+module = ["bs4.*", "pypdf.*", "PyPDF2.*", "curl_cffi.*", "telethon.*", "dotenv.*", "yaml.*", "jsonschema.*"]
+ignore_missing_imports = true
+
+# Generated by hatch-vcs at build time; not hand-written or type-checked.
+[[tool.mypy.overrides]]
+module = ["alberto_research._version"]
+ignore_errors = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra --strict-markers --strict-config --cov=alberto_research --cov-branch --cov-report=term-missing --cov-fail-under=60"
+testpaths = ["tests"]
+asyncio_mode = "auto"
+markers = [
+  "e2e: end-to-end tests that exercise a full workflow run",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["alberto_research"]
+
+[tool.coverage.report]
+show_missing = true
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+]
+
+[tool.bandit]
+exclude_dirs = ["tests"]
+# Skips are deliberate, individually justified, and recorded in SECURITY_AUDIT.md.
+#   B501 - `verify=False` on the opt-in shadow-library resolver path. Accepted
+#          residual risk requiring author sign-off (3 findings).
+#   B113 - bandit cannot see a timeout supplied through request_timeout(config)
+#          (check_call_arg_value returns None for any non-literal), so it reports
+#          a missing timeout that is in fact present (6 false positives).
+#   B608 - flags parameterised SQL whose f-string interpolates a constant filter
+#          fragment only; every user value is a bound parameter (4 false positives).
+skips = ["B501", "B113", "B608"]

@@ -1,0 +1,90 @@
+name: Feature request
+description: Propose a new capability or an improvement to alberto-research.
+title: "[Feature]: "
+labels:
+  - enhancement
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea. Please describe the problem first and the
+        proposed solution second -- it makes the tradeoffs much easier to
+        evaluate.
+
+  - type: checkboxes
+    id: preflight
+    attributes:
+      label: Preflight checks
+      options:
+        - label: I searched existing issues and discussions for this request.
+          required: true
+        - label: This request is about alberto-research (not OpenClaw or research-reader).
+          required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What are you unable to do today, and why does it matter?
+      placeholder: I want to ... but currently ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: Proposed solution
+      description: >-
+        Describe the behaviour you want, including any CLI flags, config keys
+        or public API surface you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you weighed, and why you rejected them.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Relevant component
+      description: Which part of the pipeline would this touch?
+      options:
+        - Discovery / providers
+        - DOI resolution
+        - Full-text reading
+        - Deduplication
+        - Synthesis / digest
+        - Zotero sync
+        - Delivery (Notion / newsletter)
+        - CLI
+        - Configuration
+        - Documentation
+        - CI/CD and tooling
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope and impact
+      description: Tick everything that applies.
+      options:
+        - label: This is a breaking change to existing behaviour.
+        - label: This changes persisted data or requires a migration.
+        - label: This requires a new runtime dependency.
+        - label: This adds or changes LLM-facing behaviour and needs a schema contract.
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Sketches, links to prior art, or example inputs and outputs.
+    validations:
+      required: false

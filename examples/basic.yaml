@@ -1,0 +1,71 @@
+# Example project: legal open-access resolution only.
+# Copy this file, change `id`, and point `--project` at your copy.
+#
+#   alberto-research research run    --project examples/basic.yaml --dry-run
+#   alberto-research research digest --project examples/basic.yaml
+id: alberto-research-example
+name: Alberto Research Example
+research_question: How do modular AI agent systems safely delegate untrusted research reading?
+priority_topics:
+  - AI agent orchestration
+  - sandboxed document reading
+  - prompt injection defenses
+priority_authors:
+  - Simon Willison
+languages:
+  - en
+date_ranges:
+  start: 2020-01-01
+  end: 2026-12-31
+inclusion_terms:
+  - agent
+  - sandbox
+  - prompt injection
+exclusion_terms:
+  - finance
+research_filters:
+  article_only: true
+  skip_previously_read: true
+  excluded_doi_prefixes:
+    - "10.4324/"
+    - "10.1163/"
+    - "10.5040/"
+    - "10.1007/"
+discovery_limits:
+  crossref: 5
+  semantic_scholar: 5
+screening_threshold: 0.55
+deep_reading_threshold: 0.8
+maximum_daily_deep_reads: 3
+fulltext:
+  # Shadow-library resolvers are OFF by default. Enabling them requires the
+  # `legacy-resolvers` extra and is your legal responsibility. See SECURITY.md.
+  enable_scihub: false
+  enable_annas_archive: false
+  # CrossRef and Unpaywall ask for a contact address ("polite pool").
+  # Use a role address, never a personal one.
+  unpaywall_email: "research@example.com"
+  core_api_key: ""
+  resolver_order:
+    - zotero
+    - unpaywall
+    - openalex
+    - core
+    - doaj
+    - europepmc
+    - provider_url
+  download_timeout: 30
+  cache_dir: ".cache/fulltext"
+citation_chasing:
+  enabled: true
+  max_depth: 1
+  max_references_per_paper: 5
+digest:
+  enabled: true
+  delivery_time: "08:00"
+  max_items: 10
+  save_local: true
+# Set enabled: true after configuring NOTION_API_KEY and NOTION_DATA_SOURCE_ID.
+notion:
+  enabled: false
+timezone: Europe/Lisbon

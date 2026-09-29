@@ -1,0 +1,100 @@
+# =============================================================================
+# .gitignore -- alberto-research
+#
+# Ignore rules are grouped by concern so it is obvious *why* a path is
+# ignored. Nothing in this file may hide a tracked, required artifact:
+# lockfiles, migrations and `.env.example` stay in version control.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Python: bytecode, build artifacts, caches and tool output
+# -----------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+
+# Gerado por hatch-vcs em tempo de build
+src/alberto_research/_version.py
+dist/
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+*.mutmut-cache
+mutants/
+
+# -----------------------------------------------------------------------------
+# Virtual environments (never commit an interpreter or installed packages)
+# -----------------------------------------------------------------------------
+.venv/
+venv/
+env/
+ENV/
+
+# -----------------------------------------------------------------------------
+# Secrets and credentials
+#
+# `.env` files are local only. The one exception is `.env.example`, which
+# documents every supported variable without carrying real values.
+# Nothing here has ever been committed; these rules exist to keep it that way.
+# -----------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+secrets/
+credentials.json
+service-account*.json
+
+# -----------------------------------------------------------------------------
+# Local data and generated output
+#
+# Operational state: research databases, downloaded full text, logs, rendered
+# newsletters and resolver sessions. Reproducible from the pipeline, so it is
+# never committed.
+# -----------------------------------------------------------------------------
+data/
+output/
+*.db
+*.sqlite
+*.sqlite3
+logs/
+*.log
+newsletters/
+.cache/
+scihub_session.session
+scihub_session.session-journal
+
+# -----------------------------------------------------------------------------
+# Editors and IDEs (keep personal settings out of the repository)
+# -----------------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# -----------------------------------------------------------------------------
+# Operating system noise
+# -----------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# -----------------------------------------------------------------------------
+# Internal audit artifacts (scanner reports, not source)
+# -----------------------------------------------------------------------------
+_audit/
+*.sarif

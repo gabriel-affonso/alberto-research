@@ -1,0 +1,143 @@
+{
+  "projectName": "alberto-research",
+  "projectOwner": "gabriel-affonso",
+  "repoType": "github",
+  "repo": "alberto-research",
+  "files": [
+    "README.md"
+  ],
+  "imageSize": 100,
+  "contributors": [],
+  "contributorPerLine": 7,
+  "badgeTemplate": "https://img.shields.io/badge/all_contributors-<%= contributors.length %>-orange.svg",
+  "types": {
+    "audio": {
+      "description": "Audio",
+      "symbol": "🔊"
+    },
+    "blog": {
+      "description": "Blog posts",
+      "symbol": "📝"
+    },
+    "bug": {
+      "description": "Bug reports",
+      "symbol": "🐛"
+    },
+    "business": {
+      "description": "Business development",
+      "symbol": "💼"
+    },
+    "code": {
+      "description": "Code",
+      "symbol": "💻"
+    },
+    "content": {
+      "description": "Content",
+      "symbol": "🖋"
+    },
+    "data": {
+      "description": "Data",
+      "symbol": "🔣"
+    },
+    "design": {
+      "description": "Design",
+      "symbol": "🎨"
+    },
+    "doc": {
+      "description": "Documentation",
+      "symbol": "📖"
+    },
+    "eventOrganizing": {
+      "description": "Event Organizing",
+      "symbol": "📋"
+    },
+    "example": {
+      "description": "Examples",
+      "symbol": "💡"
+    },
+    "financial": {
+      "description": "Financial",
+      "symbol": "💵"
+    },
+    "fundingFinding": {
+      "description": "Funding Finding",
+      "symbol": "🔍"
+    },
+    "ideas": {
+      "description": "Ideas, Planning, & Feedback",
+      "symbol": "🤔"
+    },
+    "infra": {
+      "description": "Infrastructure (Hosting, Build-Tools, etc)",
+      "symbol": "🚇"
+    },
+    "maintenance": {
+      "description": "Maintenance",
+      "symbol": "🚧"
+    },
+    "mentoring": {
+      "description": "Mentoring",
+      "symbol": "🧑‍🏫"
+    },
+    "platform": {
+      "description": "Packaging/porting to support a new platform",
+      "symbol": "📦"
+    },
+    "plugin": {
+      "description": "Plugin/utility libraries",
+      "symbol": "🔌"
+    },
+    "projectManagement": {
+      "description": "Project Management",
+      "symbol": "📆"
+    },
+    "promotion": {
+      "description": "Promotion",
+      "symbol": "📣"
+    },
+    "question": {
+      "description": "Answering Questions",
+      "symbol": "💬"
+    },
+    "research": {
+      "description": "Research",
+      "symbol": "🔬"
+    },
+    "review": {
+      "description": "Reviewed Pull Requests",
+      "symbol": "👀"
+    },
+    "security": {
+      "description": "Security",
+      "symbol": "🛡️"
+    },
+    "talk": {
+      "description": "Talks",
+      "symbol": "📢"
+    },
+    "test": {
+      "description": "Tests",
+      "symbol": "⚠️"
+    },
+    "tool": {
+      "description": "Tools",
+      "symbol": "🔧"
+    },
+    "translation": {
+      "description": "Translation",
+      "symbol": "🌍"
+    },
+    "tutorial": {
+      "description": "Tutorials",
+      "symbol": "✅"
+    },
+    "userTesting": {
+      "description": "User Testing",
+      "symbol": "🙋"
+    },
+    "video": {
+      "description": "Videos",
+      "symbol": "📹"
+    }
+  }
+}

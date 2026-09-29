@@ -1,0 +1,220 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - production-ready
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Least privilege by default; jobs that need more elevate locally.
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint & type check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          # hatch-vcs needs tags even though nothing is built here.
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Install Python 3.11
+        run: uv python install 3.11
+
+      # The `test` extra intentionally does not carry lint tooling, so the
+      # linters are installed explicitly here. This keeps the test matrix
+      # install small.
+      - name: Install project and lint tooling
+        run: |
+          uv pip install --system -e ".[test]"
+          uv pip install --system ruff mypy
+
+      - name: ruff check
+        run: ruff check .
+
+      - name: ruff format --check
+        run: ruff format --check .
+
+      - name: mypy
+        run: mypy
+
+  test:
+    name: Test (${{ matrix.os }}, py${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      # One failing interpreter/OS must not cancel the rest of the matrix.
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python-version: ["3.11", "3.12", "3.13"]
+        # Keep the matrix to 5 jobs: full coverage on 3.11 across all three
+        # platforms, plus the newer interpreters on Linux only. Adding macOS
+        # and Windows for 3.12/3.13 would double runner minutes for little
+        # extra signal, since platform-specific breakage shows up on 3.11 too.
+        exclude:
+          - os: macos-latest
+            python-version: "3.12"
+          - os: macos-latest
+            python-version: "3.13"
+          - os: windows-latest
+            python-version: "3.12"
+          - os: windows-latest
+            python-version: "3.13"
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Install Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+
+      - name: Install project with test extras
+        run: uv pip install --system -e ".[test]"
+
+      - name: Run tests with coverage
+        run: >-
+          pytest
+          --cov=alberto_research
+          --cov-branch
+          --cov-report=xml
+          --cov-report=term-missing
+          --cov-fail-under=60
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: coverage.xml
+          if-no-files-found: ignore
+
+      # Uploaded for every matrix leg; Codecov merges the parallel reports.
+      # No token secret: the repository is public, and a failure to upload
+      # must never fail the build.
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+
+  security:
+    name: Security scan
+    runs-on: ubuntu-latest
+    # security-events: write is required to upload CodeQL results.
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          # Full history so gitleaks can scan every commit ever pushed.
+          fetch-depth: 0
+
+      - name: Run gitleaks (full history)
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run trufflehog (verified secrets only)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          # Only report credentials proven live; unverified hits are noise.
+          extra_args: --only-verified
+          base: ${{ github.event.repository.default_branch }}
+          head: ${{ github.sha }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Install project and auditors
+        run: |
+          uv pip install --system -e ".[test]"
+          uv pip install --system bandit pip-audit
+
+      # Skipped (each justified in SECURITY_AUDIT.md):
+      #   B501 - accepted residual risk: `verify=False` on the opt-in
+      #          shadow-library resolver path (3 findings).
+      #   B113 - false positive: the timeout IS passed, via request_timeout(config);
+      #          bandit cannot resolve non-literal keyword values (6 findings).
+      #   B608 - false positive: parameterised SQL interpolating only a constant
+      #          filter fragment; all user values are bound parameters (4 findings).
+      # Every other bandit finding still fails this job.
+      - name: bandit
+        run: bandit -r src -ll -s B501,B113,B608
+
+      - name: pip-audit
+        uses: pypa/gh-action-pip-audit@v1.1.0
+        with:
+          inputs: .
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: python
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3
+
+  build:
+    name: Build distributions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          # The built version is derived from tags by hatch-vcs.
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Install Python 3.11
+        run: uv python install 3.11
+
+      - name: Install twine
+        run: uv pip install --system twine
+
+      - name: Build sdist and wheel
+        run: uv build
+
+      - name: Validate distribution metadata
+        run: twine check dist/*
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error

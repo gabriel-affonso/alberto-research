@@ -1,0 +1,62 @@
+# Example project: wider discovery, deeper citation chasing, Notion archive.
+# Demonstrates the optional knobs; everything here is still legal open access.
+id: alberto-research-advanced
+name: Alberto Research Advanced
+research_question: Which mechanisms make retrieval-augmented scientific synthesis reproducible?
+priority_topics:
+  - retrieval augmented generation
+  - citation graph traversal
+  - reproducible literature synthesis
+  - contradiction detection
+languages:
+  - en
+  - pt
+date_ranges:
+  start: 2015-01-01
+  end: 2026-12-31
+inclusion_terms:
+  - retrieval
+  - citation chaining
+  - reproducibility
+exclusion_terms:
+  - marketing
+research_filters:
+  article_only: false
+  skip_previously_read: true
+discovery_limits:
+  crossref: 25
+  semantic_scholar: 25
+screening_threshold: 0.6
+deep_reading_threshold: 0.75
+maximum_daily_deep_reads: 8
+fulltext:
+  enable_scihub: false
+  enable_annas_archive: false
+  unpaywall_email: "research@example.com"
+  resolver_order:
+    - zotero
+    - unpaywall
+    - openalex
+    - core
+    - doaj
+    - europepmc
+    - provider_url
+  download_timeout: 60
+  cache_dir: ".cache/fulltext"
+  max_fulltext_bytes: 20000000
+citation_chasing:
+  enabled: true
+  max_depth: 2
+  max_references_per_paper: 15
+digest:
+  enabled: true
+  delivery_time: "07:30"
+  max_items: 25
+  save_local: true
+notion:
+  enabled: false
+openclaw:
+  # Absolute path to the openclaw binary. Defaults to ALBERTO_OPENCLAW_BIN,
+  # then to `openclaw` resolved from PATH.
+  binary: ""
+timezone: Europe/Lisbon

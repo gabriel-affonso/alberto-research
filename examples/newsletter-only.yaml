@@ -1,0 +1,55 @@
+# Example project: digest only.
+# Deep reading is disabled (maximum_daily_deep_reads: 0) so the workflow only
+# screens metadata and produces a digest of candidates. Useful as a cheap cron
+# job on a small host.
+id: alberto-research-newsletter-only
+name: Alberto Research Newsletter Only
+research_question: What is newly published on ancient Greek theatre performance practice?
+priority_topics:
+  - Greek tragedy
+  - performance practice
+  - theatre history
+languages:
+  - en
+  - de
+  - fr
+date_ranges:
+  start: 2024-01-01
+  end: 2026-12-31
+inclusion_terms:
+  - tragedy
+  - performance
+  - staging
+exclusion_terms:
+  - reception study
+research_filters:
+  article_only: true
+  skip_previously_read: true
+discovery_limits:
+  crossref: 10
+  semantic_scholar: 10
+screening_threshold: 0.5
+deep_reading_threshold: 0.95
+maximum_daily_deep_reads: 0
+fulltext:
+  enable_scihub: false
+  enable_annas_archive: false
+  unpaywall_email: "research@example.com"
+  resolver_order:
+    - unpaywall
+    - openalex
+    - doaj
+    - provider_url
+  download_timeout: 30
+citation_chasing:
+  enabled: false
+  max_depth: 0
+  max_references_per_paper: 0
+digest:
+  enabled: true
+  delivery_time: "06:45"
+  max_items: 15
+  save_local: true
+notion:
+  enabled: false
+timezone: Europe/Lisbon

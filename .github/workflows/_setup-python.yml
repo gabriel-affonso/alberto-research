@@ -1,0 +1,62 @@
+# Reusable setup workflow.
+#
+# Encapsulates the steps every Python job in this repository needs so the
+# toolchain stays consistent: full-history checkout (hatch-vcs derives the
+# package version from git tags, so a shallow clone produces a wrong/fallback
+# version), a cached uv install, the requested interpreter, and an editable
+# install of the project.
+#
+# Callers look like:
+#   jobs:
+#     lint:
+#       uses: ./.github/workflows/_setup-python.yml
+#       with:
+#         python-version: "3.11"
+#         install-extras: "dev"
+name: Setup Python
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: "Python version to install (e.g. 3.11, 3.12, 3.13)."
+        required: true
+        type: string
+      install-extras:
+        description: >-
+          Comma-separated extras from pyproject.toml to install, e.g. "test"
+          or "test,docs". Defaults to "test". Never use "legacy-resolvers"
+          here: those shadow-library resolvers are disabled by design.
+        required: false
+        default: test
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    # Quoted because the expression contains a colon, which would otherwise
+    # terminate this plain YAML scalar.
+    name: "Setup (Python ${{ inputs.python-version }}, extras: ${{ inputs.install-extras }})"
+    runs-on: ubuntu-latest
+    steps:
+      # fetch-depth: 0 is required by hatch-vcs: scm versioning needs the tags.
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"
+
+      - name: Install Python ${{ inputs.python-version }}
+        run: uv python install ${{ inputs.python-version }}
+
+      # Installed into the runner's system interpreter so later steps do not
+      # each need `uv run`.
+      - name: Install project with extras
+        run: uv pip install --system -e ".[${{ inputs.install-extras }}]"

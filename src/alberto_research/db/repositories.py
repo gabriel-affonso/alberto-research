@@ -1,0 +1,755 @@
+from __future__ import annotations
+
+import json
+import sqlite3
+from datetime import UTC, datetime
+from typing import Any
+from uuid import uuid4
+
+from alberto_research.dedupe import normalize_doi, normalize_text
+from alberto_research.enums import AccessLevel, FeedbackType, LifecycleState, RelationshipType
+from alberto_research.models import PaperRecord
+
+
+def dumps(value: Any) -> str:
+    return json.dumps(value, sort_keys=True, ensure_ascii=False, default=str)
+
+
+def _last_row_id(cursor: sqlite3.Cursor) -> int:
+    """Return ``cursor.lastrowid`` as an int, failing loudly when SQLite omits it."""
+    if cursor.lastrowid is None:  # pragma: no cover - INSERT always sets lastrowid
+        raise RuntimeError("SQLite did not return a lastrowid for the INSERT")
+    return int(cursor.lastrowid)
+
+
+def utc_now() -> str:
+    return datetime.now(UTC).isoformat()
+
+
+class AlbertoRepository:
+    def __init__(self, conn: sqlite3.Connection):
+        self.conn = conn
+
+    def upsert_project(self, config: dict[str, Any], config_path: str | None = None) -> None:
+        with self.conn:
+            self.conn.execute(
+                """
+                INSERT INTO projects(id, name, research_question, config_path, config_json, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(id) DO UPDATE SET
+                  name=excluded.name,
+                  research_question=excluded.research_question,
+                  config_path=excluded.config_path,
+                  config_json=excluded.config_json,
+                  updated_at=excluded.updated_at
+                """,
+                (
+                    config["id"],
+                    config["name"],
+                    config["research_question"],
+                    config_path,
+                    dumps(config),
+                    utc_now(),
+                ),
+            )
+
+    def create_run(self, project_id: str | None, workflow: str) -> str:
+        run_id = f"run_{uuid4().hex}"
+        with self.conn:
+            self.conn.execute(
+                "INSERT INTO runs(id, project_id, workflow, status) VALUES (?, ?, ?, 'RUNNING')",
+                (run_id, project_id, workflow),
+            )
+        return run_id
+
+    def finish_run(
+        self,
+        run_id: str,
+        status: str,
+        *,
+        providers: list[str] | None = None,
+        candidate_count: int = 0,
+        screened_count: int = 0,
+        read_count: int = 0,
+        digest_id: int | None = None,
+        errors: list[str] | None = None,
+    ) -> None:
+        with self.conn:
+            self.conn.execute(
+                """
+                UPDATE runs
+                SET status=?, providers_queried_json=?, candidate_count=?, screened_count=?,
+                    read_count=?, digest_id=?, errors_json=?, finished_at=?
+                WHERE id=?
+                """,
+                (
+                    status,
+                    dumps(providers or []),
+                    candidate_count,
+                    screened_count,
+                    read_count,
+                    digest_id,
+                    dumps(errors or []),
+                    utc_now(),
+                    run_id,
+                ),
+            )
+
+    def create_search(
+        self, project_id: str, provider: str, query: str, params: dict[str, Any], dry_run: bool
+    ) -> int:
+        with self.conn:
+            cur = self.conn.execute(
+                """
+                INSERT INTO searches(project_id, provider, query, parameters_json, dry_run)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (project_id, provider, query, dumps(params), int(dry_run)),
+            )
+            return _last_row_id(cur)
+
+    def finish_search(self, search_id: int, status: str, error: str | None = None) -> None:
+        with self.conn:
+            self.conn.execute(
+                "UPDATE searches SET status=?, error=?, finished_at=? WHERE id=?",
+                (status, error, utc_now(), search_id),
+            )
+
+    def upsert_paper(self, record: PaperRecord) -> int:
+        normalized_doi = normalize_doi(record.doi)
+        normalized_title = normalize_text(record.title)
+        row = None
+        if normalized_doi:
+            row = self.conn.execute(
+                "SELECT id FROM papers WHERE normalized_doi=?", (normalized_doi,)
+            ).fetchone()
+        if row is None:
+            row = self.conn.execute(
+                "SELECT id FROM papers WHERE normalized_title=? AND publication_year IS ?",
+                (normalized_title, record.publication_year),
+            ).fetchone()
+        if row:
+            paper_id = int(row["id"])
+            with self.conn:
+                self.conn.execute(
+                    """
+                    UPDATE papers SET doi=COALESCE(?, doi), abstract=COALESCE(?, abstract),
+                      venue=COALESCE(?, venue), publication_date=COALESCE(?, publication_date),
+                      url=COALESCE(?, url), external_ids_json=?, access_level=?, updated_at=?
+                    WHERE id=?
+                    """,
+                    (
+                        record.doi,
+                        record.abstract,
+                        record.venue,
+                        record.publication_date,
+                        record.url,
+                        dumps(record.external_ids),
+                        record.access_level.value,
+                        utc_now(),
+                        paper_id,
+                    ),
+                )
+        else:
+            with self.conn:
+                cur = self.conn.execute(
+                    """
+                    INSERT INTO papers(doi, normalized_doi, title, normalized_title, abstract, venue,
+                      publication_year, publication_date, url, external_ids_json, access_level)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        record.doi,
+                        normalized_doi,
+                        record.title,
+                        normalized_title,
+                        record.abstract,
+                        record.venue,
+                        record.publication_year,
+                        record.publication_date,
+                        record.url,
+                        dumps(record.external_ids),
+                        record.access_level.value,
+                    ),
+                )
+                paper_id = _last_row_id(cur)
+        self._replace_authors(paper_id, record.authors)
+        return paper_id
+
+    def _replace_authors(self, paper_id: int, authors: tuple[str, ...]) -> None:
+        with self.conn:
+            self.conn.execute("DELETE FROM paper_authors WHERE paper_id=?", (paper_id,))
+            for index, name in enumerate(authors):
+                normalized = normalize_text(name)
+                cur = self.conn.execute(
+                    """
+                    INSERT INTO authors(name, normalized_name) VALUES (?, ?)
+                    ON CONFLICT(normalized_name) DO UPDATE SET name=excluded.name
+                    RETURNING id
+                    """,
+                    (name, normalized),
+                )
+                author_id = int(cur.fetchone()["id"])
+                self.conn.execute(
+                    "INSERT OR REPLACE INTO paper_authors(paper_id, author_id, author_order) VALUES (?, ?, ?)",
+                    (paper_id, author_id, index),
+                )
+
+    def add_discovery(
+        self,
+        search_id: int,
+        paper_id: int,
+        provider: str,
+        provider_record_id: str | None,
+        rank: int | None,
+        provenance: dict[str, Any],
+    ) -> None:
+        with self.conn:
+            self.conn.execute(
+                """
+                INSERT OR IGNORE INTO discoveries(search_id, paper_id, provider, provider_record_id, rank, provenance_json)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (search_id, paper_id, provider, provider_record_id, rank, dumps(provenance)),
+            )
+
+    def set_paper_state(self, paper_id: int, state: LifecycleState) -> None:
+        with self.conn:
+            self.conn.execute(
+                "UPDATE papers SET lifecycle_state=?, updated_at=? WHERE id=?",
+                (state.value, utc_now(), paper_id),
+            )
+
+    def has_reading(self, project_id: str, paper_id: int) -> bool:
+        row = self.conn.execute(
+            "SELECT 1 FROM readings WHERE project_id=? AND paper_id=? LIMIT 1",
+            (project_id, paper_id),
+        ).fetchone()
+        return row is not None
+
+    def reading_count(
+        self, project_id: str, *, access_level: AccessLevel | str | None = None
+    ) -> int:
+        if access_level is None:
+            row = self.conn.execute(
+                "SELECT COUNT(*) AS count FROM readings WHERE project_id=?",
+                (project_id,),
+            ).fetchone()
+        else:
+            value = (
+                access_level.value if isinstance(access_level, AccessLevel) else str(access_level)
+            )
+            row = self.conn.execute(
+                "SELECT COUNT(*) AS count FROM readings WHERE project_id=? AND access_level=?",
+                (project_id, value),
+            ).fetchone()
+        return int(row["count"])
+
+    def add_screening(
+        self,
+        project_id: str,
+        paper_id: int,
+        score: float,
+        decision: str,
+        rationale: str,
+        model: str | None = None,
+        provenance: dict[str, Any] | None = None,
+    ) -> int:
+        with self.conn:
+            cur = self.conn.execute(
+                """
+                INSERT INTO screenings(project_id, paper_id, score, decision, rationale, model, provenance_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (project_id, paper_id, score, decision, rationale, model, dumps(provenance or {})),
+            )
+            return _last_row_id(cur)
+
+    def add_reading(
+        self,
+        project_id: str,
+        paper_id: int,
+        structured: dict[str, Any],
+        *,
+        document_id: int | None = None,
+    ) -> int:
+        with self.conn:
+            cur = self.conn.execute(
+                """
+                INSERT INTO readings(project_id, paper_id, document_id, access_level, structured_json, confidence)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    project_id,
+                    paper_id,
+                    document_id,
+                    structured["access_level"],
+                    dumps(structured),
+                    float(structured["confidence"]),
+                ),
+            )
+            self.conn.execute(
+                "UPDATE papers SET lifecycle_state='READ', updated_at=? WHERE id=?",
+                (utc_now(), paper_id),
+            )
+            return _last_row_id(cur)
+
+    def add_document(
+        self,
+        *,
+        paper_id: int,
+        access_level: AccessLevel,
+        source_type: str,
+        uri: str | None = None,
+        local_path: str | None = None,
+        checksum_sha256: str | None = None,
+        pages: int | None = None,
+        provenance: dict[str, Any] | None = None,
+    ) -> int:
+        if checksum_sha256:
+            existing = self.conn.execute(
+                "SELECT id FROM documents WHERE checksum_sha256=?",
+                (checksum_sha256,),
+            ).fetchone()
+            if existing:
+                return int(existing["id"])
+        with self.conn:
+            cur = self.conn.execute(
+                """
+                INSERT INTO documents(
+                  paper_id, access_level, source_type, uri, local_path,
+                  checksum_sha256, pages, provenance_json
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    paper_id,
+                    access_level.value,
+                    source_type,
+                    uri,
+                    local_path,
+                    checksum_sha256,
+                    pages,
+                    dumps(provenance or {}),
+                ),
+            )
+            return _last_row_id(cur)
+
+    def add_relationship(
+        self,
+        project_id: str,
+        source_paper_id: int,
+        relationship_type: RelationshipType,
+        description: str,
+        target_paper_id: int | None = None,
+        provenance: dict[str, Any] | None = None,
+    ) -> int:
+        with self.conn:
+            cur = self.conn.execute(
+                """
+                INSERT INTO relationships(project_id, source_paper_id, target_paper_id, relationship_type, description, provenance_json)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    project_id,
+                    source_paper_id,
+                    target_paper_id,
+                    relationship_type.value,
+                    description,
+                    dumps(provenance or {}),
+                ),
+            )
+            return _last_row_id(cur)
+
+    def create_digest(
+        self,
+        project_id: str,
+        run_id: str | None,
+        digest_date: str,
+        title: str,
+        body: str,
+        stats: dict[str, Any],
+        items: list[dict[str, Any]],
+    ) -> int:
+        with self.conn:
+            cur = self.conn.execute(
+                """
+                INSERT INTO digests(project_id, run_id, digest_date, title, body_markdown, stats_json)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (project_id, run_id, digest_date, title, body, dumps(stats)),
+            )
+            digest_id = _last_row_id(cur)
+            for item in items:
+                self.conn.execute(
+                    """
+                    INSERT OR IGNORE INTO digest_items(id, digest_id, paper_id, reading_id, item_type, title, body, stable_ref)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        item["id"],
+                        digest_id,
+                        item.get("paper_id"),
+                        item.get("reading_id"),
+                        item["item_type"],
+                        item["title"],
+                        item["body"],
+                        item["stable_ref"],
+                    ),
+                )
+            return digest_id
+
+    def digest_readings_for_notion(self, digest_id: int) -> list[sqlite3.Row]:
+        return self.conn.execute(
+            """
+            SELECT
+              di.id AS digest_item_id,
+              di.item_type,
+              di.body AS digest_body,
+              d.digest_date,
+              p.id AS paper_id,
+              p.title,
+              p.doi,
+              p.abstract,
+              p.venue,
+              p.publication_year,
+              p.url,
+              pr.name AS project_name,
+              pr.id AS project_id,
+              COALESCE(r.access_level, 'METADATA_ONLY') AS access_level,
+              COALESCE(r.structured_json, '{}') AS structured_json,
+              COALESCE(r.confidence, 0) AS confidence,
+              COALESCE((
+                SELECT GROUP_CONCAT(a.name, ', ')
+                FROM paper_authors pa
+                JOIN authors a ON a.id = pa.author_id
+                WHERE pa.paper_id = p.id
+                ORDER BY pa.author_order
+              ), '') AS authors
+            FROM digest_items di
+            JOIN digests d ON d.id = di.digest_id
+            JOIN projects pr ON pr.id = d.project_id
+            JOIN papers p ON p.id = di.paper_id
+            LEFT JOIN readings r ON r.id = di.reading_id
+            WHERE di.digest_id = ?
+            ORDER BY di.id
+            """,
+            (digest_id,),
+        ).fetchall()
+
+    def link_historical_digest_readings(self, project_id: str | None = None) -> int:
+        """Attach pre-Notion digest items to the reading they originally reported."""
+        project_filter = "" if project_id is None else "AND d.project_id=?"
+        params: tuple[str, ...] = () if project_id is None else (project_id,)
+        with self.conn:
+            before = self.conn.total_changes
+            self.conn.execute(
+                f"""
+                UPDATE digest_items
+                SET reading_id = (
+                  SELECT r.id
+                  FROM readings r
+                  JOIN digests d2 ON d2.id = digest_items.digest_id
+                  WHERE r.project_id = d2.project_id
+                    AND r.paper_id = digest_items.paper_id
+                    AND r.access_level != 'METADATA_ONLY'
+                    AND r.created_at <= digest_items.created_at
+                  ORDER BY r.created_at DESC, r.id DESC
+                  LIMIT 1
+                )
+                WHERE item_type = 'reading'
+                  AND reading_id IS NULL
+                  AND EXISTS (
+                    SELECT 1 FROM digests d
+                    WHERE d.id = digest_items.digest_id {project_filter}
+                  )
+                """,
+                params,
+            )
+            return self.conn.total_changes - before
+
+    def historical_digest_readings_for_notion(
+        self, project_id: str | None = None
+    ) -> list[sqlite3.Row]:
+        project_filter = "" if project_id is None else "AND d.project_id=?"
+        params: tuple[str, ...] = () if project_id is None else (project_id,)
+        return self.conn.execute(
+            f"""
+            SELECT
+              di.id AS digest_item_id,
+              d.digest_date,
+              p.id AS paper_id,
+              p.title,
+              p.doi,
+              p.venue,
+              p.publication_year,
+              p.url,
+              pr.name AS project_name,
+              pr.id AS project_id,
+              r.access_level,
+              r.structured_json,
+              r.confidence,
+              COALESCE((
+                SELECT GROUP_CONCAT(a.name, ', ')
+                FROM paper_authors pa
+                JOIN authors a ON a.id = pa.author_id
+                WHERE pa.paper_id = p.id
+                ORDER BY pa.author_order
+              ), '') AS authors
+            FROM digest_items di
+            JOIN digests d ON d.id = di.digest_id
+            JOIN projects pr ON pr.id = d.project_id
+            JOIN papers p ON p.id = di.paper_id
+            JOIN readings r ON r.id = di.reading_id
+            WHERE di.item_type = 'reading' {project_filter}
+            ORDER BY d.digest_date DESC, di.created_at DESC, di.id DESC
+            """,
+            params,
+        ).fetchall()
+
+    def all_readings_for_notion(self, project_id: str | None = None) -> list[sqlite3.Row]:
+        project_filter = "" if project_id is None else "AND r.project_id=?"
+        params: tuple[str, ...] = () if project_id is None else (project_id,)
+        return self.conn.execute(
+            f"""
+            SELECT
+              (
+                SELECT di.id
+                FROM digest_items di
+                JOIN digests d ON d.id = di.digest_id
+                WHERE di.paper_id = p.id
+                  AND di.item_type = 'reading'
+                  AND d.project_id = r.project_id
+                ORDER BY d.digest_date DESC, di.created_at DESC, di.id DESC
+                LIMIT 1
+              ) AS digest_item_id,
+              (
+                SELECT d.digest_date
+                FROM digest_items di
+                JOIN digests d ON d.id = di.digest_id
+                WHERE di.paper_id = p.id
+                  AND di.item_type = 'reading'
+                  AND d.project_id = r.project_id
+                ORDER BY d.digest_date DESC, di.created_at DESC, di.id DESC
+                LIMIT 1
+              ) AS digest_date,
+              (
+                SELECT di.body
+                FROM digest_items di
+                JOIN digests d ON d.id = di.digest_id
+                WHERE di.paper_id = p.id
+                  AND di.item_type = 'reading'
+                  AND d.project_id = r.project_id
+                ORDER BY d.digest_date DESC, di.created_at DESC, di.id DESC
+                LIMIT 1
+              ) AS digest_body,
+              'reading' AS item_type,
+              p.id AS paper_id,
+              p.title,
+              p.doi,
+              p.abstract,
+              p.venue,
+              p.publication_year,
+              p.url,
+              pr.name AS project_name,
+              pr.id AS project_id,
+              r.access_level,
+              r.structured_json,
+              r.confidence,
+              COALESCE((
+                SELECT GROUP_CONCAT(a.name, ', ')
+                FROM paper_authors pa
+                JOIN authors a ON a.id = pa.author_id
+                WHERE pa.paper_id = p.id
+                ORDER BY pa.author_order
+              ), '') AS authors
+            FROM readings r
+            JOIN projects pr ON pr.id = r.project_id
+            JOIN papers p ON p.id = r.paper_id
+            WHERE r.access_level != 'METADATA_ONLY'
+              {project_filter}
+              AND r.id = (
+                SELECT MAX(r2.id)
+                FROM readings r2
+                WHERE r2.project_id = r.project_id
+                  AND r2.paper_id = r.paper_id
+                  AND r2.access_level != 'METADATA_ONLY'
+              )
+            ORDER BY r.created_at DESC, r.id DESC
+            """,
+            params,
+        ).fetchall()
+
+    def digest_candidates_for_notion(self, project_id: str | None = None) -> list[sqlite3.Row]:
+        project_filter = "" if project_id is None else "AND d.project_id=?"
+        params: tuple[str, ...] = () if project_id is None else (project_id,)
+        return self.conn.execute(
+            f"""
+            SELECT
+              di.id AS digest_item_id,
+              di.item_type,
+              di.body AS digest_body,
+              d.digest_date,
+              p.id AS paper_id,
+              p.title,
+              p.doi,
+              p.abstract,
+              p.venue,
+              p.publication_year,
+              p.url,
+              pr.name AS project_name,
+              pr.id AS project_id,
+              'METADATA_ONLY' AS access_level,
+              '{{}}' AS structured_json,
+              0 AS confidence,
+              COALESCE((
+                SELECT GROUP_CONCAT(a.name, ', ')
+                FROM paper_authors pa
+                JOIN authors a ON a.id = pa.author_id
+                WHERE pa.paper_id = p.id
+                ORDER BY pa.author_order
+              ), '') AS authors
+            FROM digest_items di
+            JOIN digests d ON d.id = di.digest_id
+            JOIN projects pr ON pr.id = d.project_id
+            JOIN papers p ON p.id = di.paper_id
+            WHERE di.item_type = 'paper' {project_filter}
+              AND NOT EXISTS (
+                SELECT 1
+                FROM readings r
+                WHERE r.project_id = d.project_id
+                  AND r.paper_id = p.id
+                  AND r.access_level != 'METADATA_ONLY'
+              )
+            ORDER BY d.digest_date DESC, di.created_at DESC, di.id DESC
+            """,
+            params,
+        ).fetchall()
+
+    def notion_page_id(self, project_id: str, paper_id: int) -> str | None:
+        row = self.conn.execute(
+            "SELECT notion_page_id FROM notion_article_syncs WHERE project_id=? AND paper_id=?",
+            (project_id, paper_id),
+        ).fetchone()
+        return str(row["notion_page_id"]) if row else None
+
+    def record_notion_article_sync(
+        self,
+        *,
+        project_id: str,
+        paper_id: int,
+        notion_page_id: str,
+        digest_item_id: str | None,
+    ) -> None:
+        with self.conn:
+            self.conn.execute(
+                """
+                INSERT INTO notion_article_syncs(project_id, paper_id, notion_page_id, last_digest_item_id, last_synced_at)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(project_id, paper_id) DO UPDATE SET
+                  notion_page_id=excluded.notion_page_id,
+                  last_digest_item_id=excluded.last_digest_item_id,
+                  last_synced_at=excluded.last_synced_at
+                """,
+                (project_id, paper_id, notion_page_id, digest_item_id, utc_now()),
+            )
+
+    def add_feedback(
+        self,
+        project_id: str,
+        feedback_type: FeedbackType,
+        *,
+        digest_item_id: str | None = None,
+        paper_id: int | None = None,
+        note: str | None = None,
+    ) -> int:
+        with self.conn:
+            cur = self.conn.execute(
+                """
+                INSERT INTO feedback(project_id, digest_item_id, paper_id, feedback_type, note)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (project_id, digest_item_id, paper_id, feedback_type.value, note),
+            )
+            return _last_row_id(cur)
+
+    def paper_count(self) -> int:
+        return int(self.conn.execute("SELECT COUNT(*) AS count FROM papers").fetchone()["count"])
+
+    def recent_reportable_papers(self, project_id: str, limit: int = 10) -> list[sqlite3.Row]:
+        return self.conn.execute(
+            """
+            SELECT p.*
+            FROM papers p
+            WHERE p.lifecycle_state IN ('DISCOVERED','SCREENED','QUEUED','READ')
+              AND NOT EXISTS (
+                SELECT 1
+                FROM digest_items di
+                JOIN digests d ON d.id = di.digest_id
+                WHERE di.paper_id = p.id
+                  AND d.project_id = ?
+              )
+            ORDER BY COALESCE(p.publication_year, 0) DESC, p.created_at DESC
+            LIMIT ?
+            """,
+            (project_id, limit),
+        ).fetchall()
+
+    def recent_reportable_readings(self, project_id: str, limit: int = 10) -> list[sqlite3.Row]:
+        return self.conn.execute(
+            """
+            SELECT
+              p.id AS paper_id,
+              r.id AS reading_id,
+              p.title,
+              p.doi,
+              p.abstract,
+              p.venue,
+              p.publication_year,
+              r.access_level,
+              r.structured_json,
+              r.confidence,
+              r.created_at AS reading_created_at
+            FROM readings r
+            JOIN papers p ON p.id = r.paper_id
+            WHERE r.project_id = ?
+              AND r.access_level != 'METADATA_ONLY'
+              AND NOT EXISTS (
+                SELECT 1
+                FROM digest_items di
+                JOIN digests d ON d.id = di.digest_id
+                WHERE di.paper_id = p.id
+                  AND d.project_id = r.project_id
+                  AND di.created_at >= r.created_at
+              )
+              AND r.id = (
+                SELECT MAX(r2.id)
+                FROM readings r2
+                WHERE r2.project_id = r.project_id AND r2.paper_id = r.paper_id
+              )
+            ORDER BY r.confidence DESC, COALESCE(p.publication_year, 0) DESC, r.created_at DESC
+            LIMIT ?
+            """,
+            (project_id, limit),
+        ).fetchall()
+
+    def recent_query_seed_readings(self, project_id: str, limit: int = 20) -> list[sqlite3.Row]:
+        return self.conn.execute(
+            """
+            SELECT
+              p.title,
+              p.doi,
+              p.venue,
+              p.publication_year,
+              r.structured_json,
+              r.confidence,
+              r.created_at AS reading_created_at
+            FROM readings r
+            JOIN papers p ON p.id = r.paper_id
+            WHERE r.project_id = ?
+              AND r.access_level != 'METADATA_ONLY'
+            ORDER BY r.confidence DESC, r.created_at DESC
+            LIMIT ?
+            """,
+            (project_id, limit),
+        ).fetchall()
