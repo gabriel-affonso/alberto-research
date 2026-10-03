@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # hatch-vcs needs tags; the docs build installs the project to let
           # mkdocstrings introspect real modules.
