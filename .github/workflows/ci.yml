@@ -42,6 +42,9 @@ jobs:
       # externally managed interpreter, so create the environment explicitly.
       - name: Create virtualenv
         run: uv venv
+      - name: Add venv to PATH
+        shell: bash
+        run: echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       # The `test` extra intentionally does not carry lint tooling, so the
       # linters are installed explicitly here. This keeps the test matrix
@@ -99,6 +102,12 @@ jobs:
 
       - name: Create virtualenv
         run: uv venv
+
+      # This matrix includes windows-latest, so the script directory differs
+      # from POSIX. The default shell on Windows runners is pwsh.
+      - name: Add venv to PATH
+        shell: pwsh
+        run: echo "$env:GITHUB_WORKSPACE\.venv\Scripts" >> "$env:GITHUB_PATH"
 
       - name: Install project with test extras
         run: uv pip install -e ".[test]"
@@ -173,6 +182,9 @@ jobs:
 
       - name: Create virtualenv
         run: uv venv
+      - name: Add venv to PATH
+        shell: bash
+        run: echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Install project and auditors
         run: |
@@ -224,6 +236,9 @@ jobs:
 
       - name: Create virtualenv
         run: uv venv
+      - name: Add venv to PATH
+        shell: bash
+        run: echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Install twine
         run: uv pip install twine
