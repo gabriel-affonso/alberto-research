@@ -17,6 +17,15 @@ jobs:
   analysis:
     name: Scorecard analysis
     runs-on: ubuntu-latest
+    # Upstream breakage, not a problem with this repository:
+    # ossf/scorecard-action@v2.4.0 is distributed via gcr.io, and pulling it now
+    # fails with "This API method requires billing to be enabled" (the OpenSSF
+    # project's GCR registry rejected anonymous pulls). Every run therefore dies
+    # while fetching the action image, before any analysis happens. Keeping the
+    # job but not letting it fail the workflow avoids training reviewers to
+    # ignore a permanently red check. Remove this once ossf/scorecard-action
+    # ships from a registry that does not require billing (e.g. ghcr.io).
+    continue-on-error: true
     permissions:
       # upload-sarif needs security-events; publish_results needs id-token.
       security-events: write

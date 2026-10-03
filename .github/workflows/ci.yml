@@ -42,9 +42,9 @@ jobs:
       # externally managed interpreter, so create the environment explicitly.
       - name: Create virtualenv
         run: uv venv
-      - name: Add venv to PATH
+      - name: Activate virtualenv for uv
         shell: bash
-        run: echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+        run: echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
 
       # The `test` extra intentionally does not carry lint tooling, so the
       # linters are installed explicitly here. This keeps the test matrix
@@ -55,13 +55,13 @@ jobs:
           uv pip install ruff mypy
 
       - name: ruff check
-        run: ruff check .
+        run: uv run ruff check .
 
       - name: ruff format --check
-        run: ruff format --check .
+        run: uv run ruff format --check .
 
       - name: mypy
-        run: mypy
+        run: uv run mypy
 
   test:
     name: Test (${{ matrix.os }}, py${{ matrix.python-version }})
@@ -103,18 +103,18 @@ jobs:
       - name: Create virtualenv
         run: uv venv
 
-      # This matrix includes windows-latest, so the script directory differs
-      # from POSIX. The default shell on Windows runners is pwsh.
-      - name: Add venv to PATH
-        shell: pwsh
-        run: echo "$env:GITHUB_WORKSPACE\.venv\Scripts" >> "$env:GITHUB_PATH"
+      # Point uv at the environment just created so every later step can use
+      # `uv run`. This is cross-platform: uv resolves the interpreter itself.
+      - name: Activate virtualenv for uv
+        shell: bash
+        run: echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
 
       - name: Install project with test extras
         run: uv pip install -e ".[test]"
 
       - name: Run tests with coverage
         run: >-
-          pytest
+          uv run pytest
           --cov=alberto_research
           --cov-branch
           --cov-report=xml
@@ -182,9 +182,9 @@ jobs:
 
       - name: Create virtualenv
         run: uv venv
-      - name: Add venv to PATH
+      - name: Activate virtualenv for uv
         shell: bash
-        run: echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+        run: echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
 
       - name: Install project and auditors
         run: |
@@ -200,7 +200,7 @@ jobs:
       #          filter fragment; all user values are bound parameters (4 findings).
       # Every other bandit finding still fails this job.
       - name: bandit
-        run: bandit -r src -ll -s B501,B113,B608
+        run: uv run bandit -r src -ll -s B501,B113,B608
 
       - name: pip-audit
         uses: pypa/gh-action-pip-audit@v1.1.0
@@ -236,9 +236,9 @@ jobs:
 
       - name: Create virtualenv
         run: uv venv
-      - name: Add venv to PATH
+      - name: Activate virtualenv for uv
         shell: bash
-        run: echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+        run: echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
 
       - name: Install twine
         run: uv pip install twine
@@ -247,7 +247,7 @@ jobs:
         run: uv build
 
       - name: Validate distribution metadata
-        run: twine check dist/*
+        run: uv run twine check dist/*
 
       - name: Upload distributions
         uses: actions/upload-artifact@v4

@@ -45,16 +45,16 @@ jobs:
 
       - name: Create virtualenv
         run: uv venv
-      - name: Add venv to PATH
+      - name: Activate virtualenv for uv
         shell: bash
-        run: echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+        run: echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
 
       - name: Install project with docs extras
         run: uv pip install -e ".[docs]"
 
       # --strict turns broken links and missing nav entries into build errors.
       - name: Build documentation
-        run: mkdocs build --strict
+        run: uv run mkdocs build --strict
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
