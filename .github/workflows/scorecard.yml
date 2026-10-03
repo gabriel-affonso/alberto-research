@@ -25,7 +25,7 @@ jobs:
       actions: read
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           # Scorecard inspects history and branch structure.
           fetch-depth: 0
