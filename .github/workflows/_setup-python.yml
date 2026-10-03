@@ -59,4 +59,4 @@ jobs:
       # Installed into the runner's system interpreter so later steps do not
       # each need `uv run`.
       - name: Install project with extras
-        run: uv pip install --system -e ".[${{ inputs.install-extras }}]"
+        run: uv pip install -e ".[${{ inputs.install-extras }}]"

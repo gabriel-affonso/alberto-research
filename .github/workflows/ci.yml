@@ -43,8 +43,8 @@ jobs:
       # install small.
       - name: Install project and lint tooling
         run: |
-          uv pip install --system -e ".[test]"
-          uv pip install --system ruff mypy
+          uv pip install -e ".[test]"
+          uv pip install ruff mypy
 
       - name: ruff check
         run: ruff check .
@@ -93,7 +93,7 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
 
       - name: Install project with test extras
-        run: uv pip install --system -e ".[test]"
+        run: uv pip install -e ".[test]"
 
       - name: Run tests with coverage
         run: >-
@@ -141,13 +141,21 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # The action above scans the push/PR commit range only. This independent
+      # full-history sweep walks every commit ever pushed. `--redact` keeps any
+      # real secret out of the logs; a non-zero exit fails the job.
+      - name: Scan all commits for secrets
+        run: gitleaks detect --source . --log-opts="--all" --redacted --verbose
+
+      # No base/head range on purpose: passing the default branch as `base`
+      # makes it equal to `head` on the first push to a new remote, and
+      # trufflehog then aborts with "BASE and HEAD commits are the same.
+      # TruffleHog won't scan anything."
       - name: Run trufflehog (verified secrets only)
         uses: trufflesecurity/trufflehog@main
         with:
           # Only report credentials proven live; unverified hits are noise.
           extra_args: --only-verified
-          base: ${{ github.event.repository.default_branch }}
-          head: ${{ github.sha }}
 
       - name: Install uv
         uses: astral-sh/setup-uv@v5
@@ -157,8 +165,8 @@ jobs:
 
       - name: Install project and auditors
         run: |
-          uv pip install --system -e ".[test]"
-          uv pip install --system bandit pip-audit
+          uv pip install -e ".[test]"
+          uv pip install bandit pip-audit
 
       # Skipped (each justified in SECURITY_AUDIT.md):
       #   B501 - accepted residual risk: `verify=False` on the opt-in
@@ -204,7 +212,7 @@ jobs:
         run: uv python install 3.11
 
       - name: Install twine
-        run: uv pip install --system twine
+        run: uv pip install twine
 
       - name: Build sdist and wheel
         run: uv build

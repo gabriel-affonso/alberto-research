@@ -44,7 +44,7 @@ jobs:
         run: uv python install 3.11
 
       - name: Install project with docs extras
-        run: uv pip install --system -e ".[docs]"
+        run: uv pip install -e ".[docs]"
 
       # --strict turns broken links and missing nav entries into build errors.
       - name: Build documentation

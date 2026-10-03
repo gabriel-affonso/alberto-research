@@ -103,7 +103,7 @@ def html_digest(markdown: str, *, local_path: Path) -> str:
             in_list, in_nested_list = close_lists(body_parts, in_list, in_nested_list)
             body_parts.append(f"<p>{inline_markup(line)}</p>")
     close_lists(body_parts, in_list, in_nested_list)
-    body_parts.append(f'<p class="local-copy">Local copy: {escape(str(local_path))}</p>')
+    body_parts.append(f'<p class="local-copy">Local copy: {escape(local_path.as_posix())}</p>')
     return "\n".join(
         [
             "<!doctype html>",
