@@ -38,6 +38,11 @@ jobs:
       - name: Install Python 3.11
         run: uv python install 3.11
 
+      # uv is a virtualenv-first tool: `uv pip install` refuses to write to an
+      # externally managed interpreter, so create the environment explicitly.
+      - name: Create virtualenv
+        run: uv venv
+
       # The `test` extra intentionally does not carry lint tooling, so the
       # linters are installed explicitly here. This keeps the test matrix
       # install small.
@@ -92,6 +97,9 @@ jobs:
       - name: Install Python ${{ matrix.python-version }}
         run: uv python install ${{ matrix.python-version }}
 
+      - name: Create virtualenv
+        run: uv venv
+
       - name: Install project with test extras
         run: uv pip install -e ".[test]"
 
@@ -145,7 +153,7 @@ jobs:
       # full-history sweep walks every commit ever pushed. `--redact` keeps any
       # real secret out of the logs; a non-zero exit fails the job.
       - name: Scan all commits for secrets
-        run: gitleaks detect --source . --log-opts="--all" --redacted --verbose
+        run: gitleaks detect --source . --log-opts="--all" --redact --verbose
 
       # No base/head range on purpose: passing the default branch as `base`
       # makes it equal to `head` on the first push to a new remote, and
@@ -162,6 +170,9 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: "pyproject.toml"
+
+      - name: Create virtualenv
+        run: uv venv
 
       - name: Install project and auditors
         run: |
@@ -210,6 +221,9 @@ jobs:
 
       - name: Install Python 3.11
         run: uv python install 3.11
+
+      - name: Create virtualenv
+        run: uv venv
 
       - name: Install twine
         run: uv pip install twine
