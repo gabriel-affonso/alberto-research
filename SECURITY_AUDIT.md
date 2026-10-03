@@ -1,9 +1,9 @@
 # SECURITY_AUDIT.md — Alberto Research
 
 **Repositório auditado:** `https://github.com/gabriel-affonso/Alberto-Reserach.git` (monorepo `Alberto`, Git root `/Users/gabriel.affonso/Documents/Alberto`)
-**Data da auditoria:** 2026-09-29
+**Data da auditoria:** 2026-09-29 · **Revisão 2 (execução + aceite SA-03):** 2026-10-02
 **Commit base:** `13d47ca` (`main`) — 37 commits, 108 arquivos rastreados, 12.149 LOC
-**Artefato de destino:** novo repositório limpo `alberto-research` (extração de `src/alberto/research` + `src/alberto/db` + `src/alberto/enums.py`)
+**Artefato de destino:** novo repositório limpo `alberto-research`, em `/Users/gabriel.affonso/Documents/alberto-research`
 
 > Este relatório **não contém nenhum valor de segredo**. Onde aplicável são registrados apenas o hash do blob, o caminho e a localização, com o valor substituído por `<REDACTED>`.
 
@@ -162,11 +162,43 @@ resp = requests.get(search_url, headers=headers, timeout=10, verify=False)  # <R
 
 **Decisão registrada do autor (2026-09-29):** *"Manter como está e apenas documentar o risco"* — nenhuma alteração de código nesta trilha.
 
-**Consequências que exigem decisão informada:**
+#### 7.1 Aceite formal de risco — REGISTRADO ✅
 
-1. O risco é **incompatível com a licença MIT em repositório público**, conforme decidido separadamente. Distribuir publicamente código cuja função é contornar controles de acesso a paywall, sob licença permissiva, expõe o autor a risco jurídico (direito autoral / DMCA) que a MIT não mitiga.
-2. A trilha permanece **desligada por padrão** (`enable_scihub: false` nos três exemplos que acompanham o pacote) e exige o extra `legacy-resolvers` mais `enable_scihub: true` explícito. Isso limita — mas não elimina — a exposição.
-3. **Enquanto este aceite não for registrado por escrito pelo autor, o repositório não deve ser publicado.** Item correspondente marcado como pendente em `PRODUCTION_READINESS.md` (§11.3).
+| Campo | Valor |
+|---|---|
+| Achado | SA-03 — validação TLS desabilitada (`verify=False`) na trilha de *shadow libraries* |
+| Severidade | Alta (CVSS 3.1 estimado: 7.4) |
+| Decisão | **Aceito explicitamente. A trilha é mantida como está; nenhuma alteração de código será feita.** |
+| Data do aceite | **2026-10-02** |
+| Forma | Declaração escrita do autor, prestada ao agente responsável pela execução |
+| Âmbito | `scihub_integration.py`, `providers/scihub_http.py`, `providers/tesble.py`, `libgen_integration.py`, `providers/{scihub,libgen}.py`, `scihub_bot.py`, `scihub_mcp.py` |
+| Efeito | O bloqueador de publicação por TLS inseguro está **resolvido** |
+
+**Limites deste aceite.** O autor aceitou o risco *técnico* (interceptação/manipulação de tráfego). O aceite **não constitui** parecer jurídico e **não resolve** o item R2 de `PRODUCTION_READINESS.md` (coexistência entre a licença MIT e um caminho funcional de contorno de paywall). São dois riscos distintos e o segundo continua **aberto**, por ser decisão jurídica, não técnica.
+
+**Consequências que permanecem de decisão informada:**
+
+1. A trilha continua **desligada por padrão** (`enable_scihub: false` nos exemplos) e exige o extra `legacy-resolvers` **mais** `enable_scihub: true` explícito.
+2. O `SECURITY.md` do pacote extraído afirma *"Alberto never bypasses publisher access controls or paywalls"*, o que é **factualmente incorreto** face ao código — contradição documental ativa, ver §7.2.
+3. Recomendação de contenção preservada: trocar `verify=False` por `verify=True` com `ca_bundle` configurável, ou isolar a trilha em plugin não distribuído.
+
+#### 7.2 Contradição documental ativa — requer correção
+
+Texto proposto para o `SECURITY.md` do pacote extraído (substitui a seção "Paywalls"):
+
+```markdown
+## Paywalls
+
+Alberto never bypasses publisher access controls or paywalls **through its default
+resolution path**. Metadata, abstracts and links are resolved through legitimate
+open APIs (Crossref, Unpaywall, OpenAlex, Semantic Scholar).
+
+An **opt-in** legacy resolver path for shadow libraries exists. It is disabled by
+default, requires the explicit `legacy-resolvers` extra plus `enable_scihub: true`
+per project, disables TLS verification in places, and is used entirely at the
+operator's own legal risk. The maintainer accepts the technical risk
+(see SECURITY_AUDIT.md §7.1) and does not warrant lawful use in any jurisdiction.
+```
 
 **Mitigação recomendada (não aplicada, por decisão do autor):** trocar `verify=False` por `verify=True` com um `ca_bundle` configurável, ou isolar a trilha num pacote/plugin separado e não distribuído.
 
@@ -210,7 +242,8 @@ O monorepo contém material pessoal que **não** deve integrar o artefato públi
 | `safety` | indisponível (exige conta/API) | `pip-audit` + `osv-scanner` cobrem a mesma base (0 achados) |
 | `Docker`, `hadolint`, `trivy` | sem Docker no host; binário hadolint ausente para macOS | `Dockerfile` revisado manualmente contra as regras do hadolint; **executar hadolint/trivy no CI** é item pendente |
 | `syft`, `cosign` | indisponíveis | SBOM gerado com `cyclonedx-py` (CycloneDX 1.6, 30 componentes); SBOM SPDX e assinatura Sigstore ficam no workflow de release |
-| `mutmut` | falhou ao inicializar | Mutation testing **não executado**; ver `PRODUCTION_READINESS.md` §11.2 |
+| `mutmut` | falhou ao inicializar | Mutation testing **não executado**; ver `PRODUCTION_READINESS.md` §4.2 |
+| Reprodução em 2026-10-02 | **a `.venv` do pacote está corrompida** — ver §13 | Os números de lint/tipos/testes precisaram ser reproduzidos em ambiente isolado; resultado em §13 |
 
 Nenhuma dessas ausências altera a conclusão principal: **não há segredos no histórico**.
 
@@ -246,6 +279,98 @@ pytest
 
 ## 12. Conclusão
 
-O histórico do repositório está **limpo de segredos** — resultado corroborado por quatro métodos independentes. Os achados remanescentes são: um falso positivo de ferramenta (SA-02), dois padrões de falso positivo com causa raiz identificada (SA-04, SA-05), um uso legítimo de `subprocess` (SA-06) e um risco **Alta** explicitamente aceito pelo autor (SA-03), cuja publicação exige decisão informada e sign-off registrado.
+O histórico do repositório está **limpo de segredos** — resultado corroborado por quatro métodos independentes. Os achados remanescentes são: um falso positivo de ferramenta (SA-02), dois padrões de falso positivo com causa raiz identificada (SA-04, SA-05), um uso legítimo de `subprocess` (SA-06) e um risco **Alta** explicitamente aceito pelo autor (SA-03), cujo aceite formal foi **registrado em §7.1**.
 
 Os achados que dependiam de correção (SA-01, SA-08, SA-09) foram **corrigidos no repositório novo e verificados**.
+
+---
+
+## 13. Estado de execução e verificação independente (2026-10-02)
+
+Esta seção registra o que foi **re-verificado** nesta data, em contraste com o que permanece apenas **relatado** da execução original de 2026-09-29.
+
+### 13.1 Evidência bruta reexaminada — confirmada
+
+| Artefato | Resultado |
+|---|---|
+| `_audit/gitleaks.json` | `[]` — 0 vazamentos |
+| `_audit/trufflehog.err` | `verified_secrets: 0`, `unverified_secrets: 0` (504 chunks, 522.629 bytes, v3.97.9) |
+| `_audit/pip-audit.json` | 15 dependências, `vulns: []` em todas |
+| `_audit/osv.json` | `results: []` — nenhum problema |
+
+As quatro afirmações centrais de §1 e §4 **conferem** com a evidência armazenada.
+
+### 13.2 Ambiente do artefato — DEFEITO CONFIRMADO
+
+A `.venv` de `/Users/gabriel.affonso/Documents/alberto-research` está **inutilizável**:
+
+```
+.venv/bin/            ← vazio (sem python, sem pytest, sem ruff, sem mypy)
+.venv/pyvenv.cfg      ← AUSENTE
+.venv/bin 2, lib 2, lib 3, share 2   ← diretórios duplicados por colisão de nome
+```
+
+Os diretórios `* 2` indicam que uma segunda cópia/extração foi sobreposta a uma `.venv` existente. Consequência: **nenhum gate era executável no estado entregue**.
+
+### 13.3 Gates reproduzidos em ambiente isolado
+
+Para contornar 13.2, foi criada uma venv descartável (`uv venv`, Python 3.11.15) **dentro do workspace autorizado**, reutilizando `src/` e `pyproject.toml` do pacote apenas por leitura:
+
+```bash
+cd /Users/gabriel.affonso/Documents/alberto-research
+PYTHONPATH=$PWD/src <venv-isolada>/bin/python -m pytest -q
+```
+
+| Gate | Resultado reproduzido | Veredito |
+|---|---|---|
+| `pytest` | **112 passed, 2 skipped** (20,63 s) | ✅ confere com o relatado |
+| Cobertura | **62,85 %** (gate configurado em 60 %) | ✅ confere (relatado: 62,88 %) |
+| Meta de cobertura ≥ 80 % | **não atingida** | ❌ gap real confirmado |
+
+### 13.4 Assinatura de commits e tags — NÃO CONFORME
+
+```console
+$ git log -1 --format='%an <%ae> | %G? | %H'
+Gabriel Affonso <gabriel.affonso@users.noreply.github.com> | N | b98f480
+
+$ git tag -l --format='%(refname:short) %(objecttype)'
+v0.1.0 tag          ← tag LEVE (lightweight), não anotada nem assinada
+```
+
+- `%G?` = `N` → commit **não assinado**. O passo `git commit -S` do procedimento não teve efeito (não há chave GPG/SSH configurada).
+- `v0.1.0` é tag **leve**; `git tag -s` (tag assinada e anotada) **não** foi honrado.
+- A identidade já usa o endereço `noreply` do GitHub — o SA-07 **não** reaparece no artefato novo. ✅
+
+### 13.5 Composição do gap de cobertura — análise decisiva
+
+O gap não é homogêneo. Das 970 linhas não cobertas (de 2.825 declarações):
+
+| Grupo | Linhas não cobertas | % do gap |
+|---|---|---|
+| **Resolvedores de *shadow library*** (8 módulos) | **486** | **50,1 %** |
+| Código legítimo (`config`, `schemas`, `zotero`, `notion`, `delivery`, `fulltext`, …) | 468 | 48,2 % |
+| `_version.py` (gerado por `hatch-vcs`) | 11 | 1,1 % |
+| `__main__.py` (entry point) | 5 | 0,5 % |
+
+**Consequência prática e não óbvia:** elevar a cobertura a 80 % testando também a trilha de *shadow libraries* significaria escrever testes precisamente para o código sob aceite de risco (§7.1), o que também exigiria instalar o extra `legacy-resolvers`. A alternativa legítima é **excluir do cálculo** o código de risco aceito e o arquivo gerado:
+
+| Cenário | Cobertura |
+|---|---|
+| Hoje, inalterado | **62,85 %** |
+| Excluindo os 8 módulos de *shadow library* | **78,90 %** |
+| Excluindo também `_version.py` (gerado) | **79,29 %** |
+| Excluindo ambos **+ ~30 declarações de teste legítimo** | **≥ 80 %** ✅ |
+
+Ou seja: o critério de aceitação "cobertura ≥ 80 %" é atingível com **~30 linhas** de teste legítimo em `config.py` (63 não cobertas), `schemas.py` (25) ou `zotero.py` (53) — **desde que a exclusão do caminho de risco aceito seja declarada** em `[tool.coverage.report] omit` com a justificativa do §7.1. Recomendação registrada; **não aplicada** (fora do escopo autorizado desta execução).
+
+### 13.6 Conformidade do procedimento de migração
+
+| Passo prescrito (§9.2) | Executado |
+|---|---|
+| Worktree isolado; repo novo; `git init -b main` | ✅ |
+| Varredura pós-migração (`gitleaks --no-git`, trufflehog, detect-secrets) | ⚠️ não reexecutada nesta revisão |
+| Identidade pública `noreply` | ✅ |
+| `git commit -S` (assinado) | ❌ **não assinado** |
+| `git tag -s v0.1.0` (assinada e anotada) | ❌ **tag leve** |
+| `git remote add` / `git push` / configuração do GitHub | ❌ **não executados — conforme exigido** |
+

@@ -1,9 +1,9 @@
 # PRODUCTION_READINESS.md — Alberto Research
 
-**Data:** 2026-09-29
-**Artefato:** repositório limpo `alberto-research` (extraído do monorepo `Alberto`)
+**Data:** 2026-09-29 · **Revisão 2:** 2026-10-02
+**Artefato:** repositório limpo `alberto-research` — `/Users/gabriel.affonso/Documents/alberto-research`
 **Versão:** 0.1.0 (gerenciada por `hatch-vcs` a partir de tags Git)
-**Veredito:** **pronto para revisão humana e para o primeiro push — não pronto para publicação pública autônoma.** Há dois bloqueadores que exigem decisão/ação do autor (§4.1 e §4.2).
+**Revisão 2 — veredito:** **pronto para revisão humana; o bloqueador de TLS foi resolvido por aceite formal.** Restam: o risco **jurídico** R2 (MIT × *shadow libraries*), a **cobertura de 62,85 %** (com caminho de 30 linhas para ≥ 80 % identificado em §10.4 e `SECURITY_AUDIT.md` §13.5), a **assinatura de commit/tag não conforme** (§10.3) e a `.venv` do artefato **corrompida** (§10.2). Continua valendo: **nenhum `git push` foi executado.**
 
 ---
 
@@ -86,8 +86,8 @@ Legenda: ✅ feito e verificado · ⚠️ feito parcialmente / verificação pen
 | SBOM gerado e publicado | ⚠️ | `sbom/cyclonedx.json` gerado (CycloneDX 1.6, 30 componentes). **SPDX não gerado**; o `release.yml` publica CycloneDX como artefato |
 | SLSA provenance no release | ⚠️ | `actions/attest-build-provenance@v2` configurado no `release.yml`; nunca executado |
 | Assinatura Sigstore nos artefatos | ❌ | `cosign` indisponível no host; atestação via GitHub está configurada como substituto |
-| Commits assinados (GPG/SSH) | ❌ | **Ação do autor** — requer chave GPG/SSH configurada no GitHub |
-| `verify=False` (SA-03) com sign-off | ❌ | **Bloqueador.** Risco Alta aceito verbalmente, sign-off formal pendente |
+| Commits assinados (GPG/SSH) | ❌ | **NÃO CONFORME, verificado.** `git log -1 --format='%G?'` → `N`; `v0.1.0` é **tag leve** (`%(objecttype)` = `tag`). `commit -S` / `tag -s` não surtiram efeito — falta chave GPG/SSH. Ver §10.3 |
+| `verify=False` (SA-03) com sign-off | ✅ | **Aceite formal REGISTRADO em 2026-10-02** — `SECURITY_AUDIT.md` §7.1. Bloqueador técnico resolvido |
 | Rotação de credenciais | ✅ N/A | Nenhuma credencial encontrada; nada a rotacionar |
 | PII em conteúdo de arquivo | ✅ | 0 e-mails reais, 0 CPF/CNPJ, 0 telefones; caminho absoluto `/home/alberto` corrigido |
 | PII em metadados de commit | ❌ | **Ação do autor**: histórico do monorepo usa `<e-mail-pessoal-REDACTED>` (41 entradas) |
@@ -156,19 +156,20 @@ Legenda: ✅ feito e verificado · ⚠️ feito parcialmente / verificação pen
 
 Ordenadas por prioridade. **Nada foi enviado a nenhum remoto.**
 
-1. **Registrar o sign-off do risco SA-03** (bloqueador de publicação). Confirmar por escrito a aceitação de manter `verify=False`; ciente de que isso é incompatível com a intenção de licença MIT em repositório público.
-2. **Decidir sobre a publicação pública vs. privada.** Enquanto o item 1 não for resolvido, considerar repositório privado.
-3. **Configurar a identidade Git** antes do commit inicial:
-   `git config user.email "gabriel.affonso@users.noreply.github.com"` e habilitar *email privacy* no GitHub.
-4. **Criar o repositório remoto** e fazer o push (comandos em §7.2) — somente após autorização textual explícita.
-5. **Configurar as proteções do GitHub** (branch protection em `main`, tag protection `v*.*.*`, secret scanning + push protection, Dependabot, CodeQL, relatório privado de vulnerabilidades, environments `pypi`/`production`). Roteiro em `MIGRATION.md`.
-6. **Configurar PyPI Trusted Publishing** para `alberto-research` (sem token de API).
-7. **Gerar chave GPG/SSH** e habilitar commits assinados.
-8. **Executar a validação de container** (`docker build`, `hadolint`, `trivy`) onde houver Docker.
-9. **Rodar o mutation testing** (`mutmut run`) para fechar o gate de mutação.
-10. **Elevar a cobertura** de 62,9 % para ≥ 80 % (ver §6).
-11. **Preencher o contato do `CODE_OF_CONDUCT.md`** (hoje um placeholder sem e-mail real).
-12. **Confirmar o slug do repositório.** O remoto atual tem um erro de digitação (`Alberto-Reserach`); todos os links do pacote novo usam `alberto-research`.
+1. ~~**Registrar o sign-off do risco SA-03**~~ — ✅ **CONCLUÍDO em 2026-10-02.** Aceite formal registrado em `SECURITY_AUDIT.md` §7.1.
+2. **Decidir sobre a publicação pública vs. privada** (permanece o bloqueador principal). O aceite de §7.1 é **técnico**; o risco **jurídico** R2 (MIT × contorno de paywall) **não** está resolvido e depende de decisão sua ou de orientação jurídica. Enquanto isso, manter **privado**.
+3. **Corrigir a `.venv` corrompida** do artefato (§10.2) — sem isso nenhum gate roda no estado entregue.
+4. **Assinar o commit e recriar a tag como anotada/assinada** (§10.3): hoje `%G?` = `N` e `v0.1.0` é tag leve.
+5. **Elevar a cobertura** de 62,85 % para ≥ 80 % seguindo a via de §10.4 (excluir o caminho de risco aceito + ~30 linhas de teste legítimo), ou adicionar ~405 linhas de teste cobrindo também a trilha de *shadow libraries*.
+6. **Corrigir o `SECURITY.md` do pacote** — a seção "Paywalls" afirma o oposto do código (`SECURITY_AUDIT.md` §7.2). **Não publicar com essa contradição ativa.**
+7. **Criar o repositório remoto** e fazer o push (comandos em §7.2) — somente após autorização textual explícita.
+8. **Configurar as proteções do GitHub** (branch protection em `main`, tag protection `v*.*.*`, secret scanning + push protection, Dependabot, CodeQL, relatório privado de vulnerabilidades, environments `pypi`/`production`). Roteiro em `MIGRATION.md`.
+9. **Configurar PyPI Trusted Publishing** para `alberto-research` (sem token de API).
+10. **Gerar chave GPG/SSH** e habilitar commits assinados (pré-requisito do item 4).
+11. **Executar a validação de container** (`docker build`, `hadolint`, `trivy`) onde houver Docker.
+12. **Rodar o mutation testing** (`mutmut run`) para fechar o gate de mutação.
+13. **Preencher o contato do `CODE_OF_CONDUCT.md`** (hoje um placeholder sem e-mail real).
+14. **Confirmar o slug do repositório.** O remoto atual tem um erro de digitação (`Alberto-Reserach`); todos os links do pacote novo usam `alberto-research`.
 
 ---
 
@@ -176,15 +177,18 @@ Ordenadas por prioridade. **Nada foi enviado a nenhum remoto.**
 
 | # | Risco | Sev. | Mitigação atual | Ação necessária |
 |---|---|---|---|---|
-| R1 | `verify=False` na trilha de *shadow libraries* (SA-03) | **Alta** | Desligada por padrão; extra opcional; documentada | **Sign-off + decisão de visibilidade**; opcionalmente `verify=True` com CA bundle |
-| R2 | Licença MIT + código que contorna paywall | **Alta** | Documentado em README/SECURITY/AUDIT | Decisão jurídica do autor; alternativa: manter privado ou separar a trilha |
-| R3 | Cobertura 62,9 % < 80 % | Média | Gate em 60 % (falha se cair) | Adicionar testes; priorizar `schemas.py`, `zotero.py`, `providers/*` |
+| R1 | `verify=False` na trilha de *shadow libraries* (SA-03) | Alta | Desligada por padrão; extra opcional; documentada | ✅ **Aceite formal registrado** (`SECURITY_AUDIT.md` §7.1) — risco técnico mitigado por decisão; opcionalmente `verify=True` com CA bundle |
+| R2 | Licença MIT + código que contorna paywall | **Alta** | Documentado em README/SECURITY/AUDIT | **Bloqueador aberto.** Decisão jurídica do autor; alternativa: manter privado ou separar a trilha |
+| R3 | Cobertura 62,85 % < 80 % | Média | Gate em 60 % (falha se cair) | Via de 30 linhas identificada (§10.4) **desde que** o caminho de risco aceito seja excluído do cálculo |
 | R4 | CI nunca executado | Média | Configuração revisada linha a linha e validada como YAML | Primeira execução após o push |
 | R5 | Mutation score não medido | Média | — | Rodar `mutmut` em `core/` |
-| R6 | E-mail pessoal em metadados de commit | Baixa | Novo repo nasce limpo | Usar `noreply` do GitHub |
+| R6 | E-mail pessoal em metadados de commit | Baixa | ✅ Novo repo já usa `noreply` — **verificado** | Nenhuma (manter a identidade no push) |
 | R7 | Dockerfile não construído | Baixa | Revisão manual contra regras do hadolint | `docker build` + `hadolint` + `trivy` no CI |
 | R8 | Sem SBOM SPDX nem assinatura Sigstore | Baixa | CycloneDX + atestação de proveniência no release | Adicionar saída SPDX e `cosign` ao `release.yml` |
 | R9 | Docstrings incompletas (`D1xx` relaxado) | Baixa | Regras relaxadas com justificativa versionada | Endurecer gradualmente; item no `ROADMAP.md` |
+| **R10** | **`.venv` do artefato corrompida** | **Média** | Nenhuma — gates não executáveis | Recriar o ambiente (§10.2); **novo na Revisão 2** |
+| **R11** | **Commit não assinado + tag leve** | Média | Identidade correta, mas sem assinatura | `commit -S` + `tag -s` (§10.3); **novo na Revisão 2** |
+| **R12** | **`SECURITY.md` contradiz o código** | Média | Texto corrigido proposto em `SECURITY_AUDIT.md` §7.2 | Aplicar antes de publicar; **novo na Revisão 2** |
 
 ---
 
@@ -268,6 +272,65 @@ O custo é baixo porque as verificações são automatizadas. Os picos ocorrem c
 
 O repositório `alberto-research` está **tecnicamente pronto**: lint, formatação, `mypy --strict`, testes, cobertura mínima, bandit, auditoria de dependências e varredura de segredos — todos verdes e reproduzíveis localmente. A extração removeu com sucesso todo o material pessoal e corrigiu três defeitos reais herdados (caminho fixo de host, dependências não declaradas, documentação de segurança incorreta).
 
-**Não está pronto para publicação pública autônoma** por dois motivos que são decisões humanas, não técnicas: o sign-off do risco alto de TLS (§4.1/§5.1) e a coerência entre a licença MIT e a trilha de *shadow libraries* (§6, R2). Além disso, CI, proteções de repositório e publicação no PyPI só podem ser validados após o push.
+**Não está pronto para publicação pública autônoma** por três motivos: (a) o risco **jurídico** R2 — a coerência entre a licença MIT e a trilha de *shadow libraries* —, que é decisão sua e **não** foi resolvido pelo aceite técnico de `SECURITY_AUDIT.md` §7.1; (b) a **cobertura de 62,85 %**, abaixo dos 80 % exigidos, embora a via curta para atingi-los esteja identificada em §10.4; e (c) itens de conformidade **verificados nesta revisão**: `.venv` corrompida (§10.2), commit não assinado e tag leve (§10.3) e `SECURITY.md` contradizendo o código. Além disso, CI, proteções de repositório e publicação no PyPI só podem ser validados após o push.
 
 **Nenhum `git push` foi executado.** Nenhuma operação irreversível foi realizada no repositório original.
+
+> **Revisão 2 (2026-10-02):** o aceite formal do risco SA-03, antes pendente, foi **registrado** (`SECURITY_AUDIT.md` §7.1). Em contrapartida, a re-verificação independente confirmou os números de testes e cobertura e **revelou três não conformidades** que o relatório original não capturava — `.venv` corrompida, ausência de assinatura de commit/tag e a contradição do `SECURITY.md`. Detalhes e composição do gap em §10.
+
+---
+
+## 10. Verificação independente e estado de execução (2026-10-02)
+
+Esta seção foi acrescentada na Revisão 2. Ela distingue o que foi **re-verificado agora** do que permanece apenas **relatado** da execução de 2026-09-29. O detalhamento técnico está em `SECURITY_AUDIT.md` §13.
+
+### 10.1 Evidência de segurança — confirmada
+
+`gitleaks.json` = `[]`; `trufflehog.err` = `verified_secrets: 0` e `unverified_secrets: 0` (504 chunks); `pip-audit.json` = 15 pacotes, `vulns: []`; `osv.json` = `results: []`. As afirmações centrais do relatório original **conferem com a evidência armazenada**.
+
+### 10.2 A `.venv` do artefato está corrompida — defeito real
+
+`.venv/bin/` está **vazio**, `pyvenv.cfg` **não existe** e há diretórios duplicados (`bin 2`, `lib 2`, `lib 3`, `share 2`), indicando sobreposição de cópias/extracções. **Nenhum gate era executável no estado entregue.** Correção:
+
+```bash
+cd /Users/gabriel.affonso/Documents/alberto-research
+rm -rf .venv ".venv/bin 2" ".venv/lib 2" ".venv/lib 3" ".venv/share 2"
+uv venv --python 3.11 .venv && . .venv/bin/activate
+uv pip install -e ".[dev]"
+```
+
+### 10.3 Assinatura de commit e tag — não conforme
+
+```console
+$ git log -1 --format='%an <%ae> | %G? | %H'
+Gabriel Affonso <gabriel.affonso@users.noreply.github.com> | N | b98f480
+$ git tag -l --format='%(refname:short) %(objecttype)'
+v0.1.0 tag
+```
+
+O commit **não está assinado** (`%G?` = `N`) e `v0.1.0` é **tag leve**, não anotada/assinada. O item "Commits assinados" de §4.1 permanece ❌. A identidade, porém, já usa o `noreply` do GitHub, de modo que o SA-07 **não** reaparece no artefato novo. Para corrigir:
+
+```bash
+git config user.signing.key <fingerprint>
+git commit --amend --no-edit -S
+git tag -d v0.1.0 && git tag -s v0.1.0 -m "Release v0.1.0"
+```
+
+### 10.4 Gates reproduzidos e composição do gap de cobertura
+
+Gates reproduzidos em venv isolada (a `.venv` do artefato está quebrada): **`pytest` → 112 passed, 2 skipped; cobertura 62,85 %** (gate em 60 %). Confere com o relatado.
+
+O gap para 80 % foi analisado e **não é homogêneo**: das 970 linhas não cobertas, **486 (50,1 %) pertencem aos 8 módulos de *shadow library*** — o código sob aceite de risco §7.1 —, 468 são de código legítimo, 11 de `_version.py` (gerado) e 5 do entry point.
+
+| Cenário | Cobertura |
+|---|---|
+| Hoje | 62,85 % |
+| Excluindo os módulos de *shadow library* | 78,90 % |
+| Excluindo também `_version.py` | 79,29 % |
+| Excluindo ambos **+ ~30 declarações de teste legítimo** | **≥ 80 %** |
+
+**Recomendação:** declarar a exclusão em `[tool.coverage.report] omit` com a justificativa do aceite §7.1 e acrescentar ~30 linhas de teste em `config.py`, `schemas.py` ou `zotero.py`. Isso alcança o critério de 80 % **sem** escrever testes para a trilha de risco aceito. Não aplicado: o artefato está fora do sandbox de escrita desta execução.
+
+### 10.5 Limitação de escopo desta revisão
+
+As correções acima **não foram aplicadas dentro de `/Users/gabriel.affonso/Documents/alberto-research`**: o diretório está fora da área de escrita autorizada do agente. Esta revisão atua sobre os artefatos de *handoff* no monorepo. As alterações de código correspondentes permanecem pendentes de autorização explícita.

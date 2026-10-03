@@ -257,6 +257,16 @@ Copyright (c) 2025 Gabriel Affonso.
 >
 > The maintainers **do not condone and do not support** the use of those resolvers. Enabling them may violate copyright law, terms of service and institutional policy in your jurisdiction. Please do not open issues asking for support, block circumvention or legal guidance for that mode of operation.
 
+### Ownership, absence of affiliation and scope of the software
+
+> Alberto Research is an independent software project, authored by and belonging to **Gabriel Affonso**. It has **no link, sponsorship, partnership or affiliation whatsoever with Sci-Hub, Library Genesis, Anna's Archive or any other third-party service**, nor with their operators. The names mentioned belong to their respective owners and are used only to refer, descriptively, to which services an optional integration may contact.
+>
+> The project **does not host, distribute, store or intermediate** copyright-protected works, and keeps no collection of its own. It is a **software utility**: much like a web browser or a torrent client, it can be pointed at third-party services that the operator itself chooses to reach, and it **does not control, represent or answer for those services**, their content, or the way they are operated.
+>
+> The project's default path uses only legitimate open scholarly APIs. Any optional integration with third-party services stays **disabled by default** and is activated solely by an explicit decision of the operator, who bears, exclusively, all responsibility for the use made and for its legal consequences.
+>
+> This notice describes the project's scope and ownership; it is **not legal advice and carries no warranty of any kind**, and it does not replace an assessment of the laws applicable in your jurisdiction.
+
 ## Acknowledgments
 
 This project stands on the work of other people and organisations. We thank [OpenClaw](https://github.com/openclaw) for the orchestration runtime behind the LLM steps; [Crossref](https://www.crossref.org/) for the metadata and DOI infrastructure; [Unpaywall](https://unpaywall.org/) for the open-access location index; [OpenAlex](https://openalex.org/) for the open scholarly knowledge graph; [CORE](https://core.ac.uk/) for the open repository aggregator; [DOAJ](https://doaj.org/) for the directory of open-access journals; [Europe PMC](https://europepmc.org/) for the life-sciences literature; and [Semantic Scholar](https://www.semanticscholar.org/) for discovery and enriched metadata.

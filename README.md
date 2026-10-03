@@ -257,6 +257,16 @@ Copyright (c) 2025 Gabriel Affonso.
 >
 > Os mantenedores **não endossam e não apoiam** o uso desses resolvedores. Habilitá-los pode violar leis de direitos autorais, termos de serviço e políticas institucionais na sua jurisdição. Não abra issues pedindo suporte, contorno de bloqueios ou orientação jurídica para esse modo de operação.
 
+### Titularidade, ausência de afiliação e escopo do software
+
+> O Alberto Research é um projeto de software independente, de autoria e titularidade de **Gabriel Affonso**. **Não possui qualquer vínculo, patrocínio, parceria ou afiliação com o Sci-Hub, Library Genesis, Anna's Archive ou com qualquer outro serviço de terceiros**, tampouco com seus operadores. Os nomes citados pertencem aos seus respectivos titulares e são usados apenas para descrever, de forma referencial, quais serviços podem ser consultados por uma integração opcional.
+>
+> O projeto **não hospeda, não distribui, não armazena e não intermedeia** obras protegidas por direitos autorais, nem mantém qualquer acervo próprio. É um **utilitário de software**: assim como um navegador ou um cliente de torrent, pode ser apontado para serviços de terceiros que o próprio operador escolhe acessar, e **não controla, não representa e não responde por esses serviços**, por seu conteúdo ou pela forma como são operados.
+>
+> O caminho padrão do projeto usa apenas APIs acadêmicas abertas e legítimas. Qualquer integração opcional com serviços de terceiros permanece **desativada por padrão** e só se ativa por decisão explícita do operador, que assume, com exclusividade, toda a responsabilidade pelo uso que fizer e pelas consequências legais dele.
+>
+> Este aviso descreve o escopo e a titularidade do projeto; **não constitui aconselhamento jurídico nem garantia de qualquer espécie**, e não substitui a análise das leis aplicáveis na sua jurisdição.
+
 ## Agradecimentos
 
 Este projeto existe sobre o trabalho de outras pessoas e organizações. Agradecemos ao [OpenClaw](https://github.com/openclaw), pelo runtime de orquestração que sustenta as etapas de LLM; ao [Crossref](https://www.crossref.org/), pela infraestrutura de metadados e DOIs; ao [Unpaywall](https://unpaywall.org/), pelo índice de localização de acesso aberto; ao [OpenAlex](https://openalex.org/), pelo grafo aberto de conhecimento acadêmico; ao [CORE](https://core.ac.uk/), pelo agregador de repositórios abertos; ao [DOAJ](https://doaj.org/), pelo diretório de periódicos de acesso aberto; ao [Europe PMC](https://europepmc.org/), pela literatura em ciências da vida; e ao [Semantic Scholar](https://www.semanticscholar.org/), pela descoberta e pelos metadados enriquecidos.
