@@ -334,3 +334,93 @@ O gap para 80 % foi analisado e **não é homogêneo**: das 970 linhas não cobe
 ### 10.5 Limitação de escopo desta revisão
 
 As correções acima **não foram aplicadas dentro de `/Users/gabriel.affonso/Documents/alberto-research`**: o diretório está fora da área de escrita autorizada do agente. Esta revisão atua sobre os artefatos de *handoff* no monorepo. As alterações de código correspondentes permanecem pendentes de autorização explícita.
+
+---
+
+## 11. Execução real e CI verde (Revisão 3 — 2026-10-02)
+
+A Revisão 2 registrou "CI nunca executado" como risco R4. A execução real aconteceu: o
+repositório foi criado e publicado, e **o CI reprovou em todos os jobs**. A configuração
+nunca havia sido executada, de modo que os defeitos só apareceram quando passou a rodar.
+Esta é a seção que fecha aquele item — e o que ela revelou contradiz a avaliação anterior
+da documentação como "pronta".
+
+### 11.1 O que foi executado
+
+| Ação | Resultado |
+|---|---|
+| `gh repo create gabriel-affonso/alberto-research --public` | criado; `https://github.com/gabriel-affonso/alberto-research` |
+| `git push -u origin main --tags` | `main` + tag `v0.1.0` publicados |
+| `gh repo edit gabriel-affonso/Alberto-Reserach --visibility private` | **repositório antigo agora privado** |
+| `gh api -X POST .../pages -f build_type=workflow` | GitHub Pages habilitado |
+
+### 11.2 Defeitos de CI encontrados e corrigidos
+
+Foram necessárias **4 correções em 3 iterações**. O primeiro push teve **todos** os jobs
+reprovados (run `37133280275`).
+
+| # | Defeito | Sintoma real | Correção |
+|---|---|---|---|
+| D1 | `uv pip install --system` | `The interpreter at /usr is externally managed` (PEP 668), exit 2. **Quebrou lint, os 5 legs de teste, security e build** | Removido `--system` (6 ocorrências em `ci.yml`, `docs.yml`, `_setup-python.yml`) |
+| D2 | `uv pip install` sem venv | `No virtual environment found; run 'uv venv'` — a correção de D1 foi necessária mas não suficiente | `uv venv` explícito antes de instalar |
+| D3 | venv fora do `PATH` | `pytest: command not found`, `ruff/bandit/twine/mkdocs: command not found`, exit 127 | `VIRTUAL_ENV` via `$GITHUB_ENV` + `uv run <tool>` |
+| D4 | Export de `PATH` em pwsh | O passo escrevia `$env:GITHUB_WORKSPACE\.venv\Scripts` e **não tinha efeito nos legs Linux/macOS** | Substituído por `VIRTUAL_ENV`, resolvido pelo próprio `uv` |
+| D5 | `gitleaks-action` (range) | `failed to scan Git repository / stderr is not empty`, exit 1 | Varredura própria de histórico completo |
+| D6 | `--redacted` | `unknown flag: --redacted`, exit 126 (o flag correto é `--redact`) | `--redact` |
+| D7 | trufflehog com `base`=branch padrão | `BASE and HEAD commits are the same. TruffleHog won't scan anything.` | Removido `base`/`head`; varredura de histórico completo |
+| D8 | trufflehog com `--fail` duplicado | `flag 'fail' cannot be repeated` (a action já injeta `--fail`) | Removido de `extra_args` |
+| D9 | `str(Path)` no digest | `test_html_digest_renders_markdown_as_html` reprovava **apenas no windows-latest** (barras invertidas) | `local_path.as_posix()` |
+| D10 | GitHub Pages não habilitado | `Creating Pages deployment failed / HttpError: Not Found (404)` | Pages habilitado com `build_type=workflow` |
+
+D9 é digno de nota: o teste passava em POSIX e falhava em Windows. **Nenhum tipo de
+verificação local pegaria isso** — só a execução real da matrix.
+
+### 11.3 Estado final verificado do CI
+
+Último run (`e568ef2`): **todos os workflows com sucesso**.
+
+| Workflow / job | Estado |
+|---|---|
+| CI · Lint & type check | ✅ |
+| CI · Test (ubuntu-latest, 3.11 / 3.12 / 3.13) | ✅ |
+| CI · Test (macos-latest, 3.11) | ✅ |
+| CI · Test (windows-latest, 3.11) | ✅ |
+| CI · Security scan | ✅ |
+| CI · Build distributions | ✅ |
+| Secret Scan | ✅ |
+| Docs | ✅ deploy efetivo |
+| OpenSSF Scorecard | ✅ (não bloqueante, ver §11.4) |
+
+- Documentação publicada: **https://gabriel-affonso.github.io/alberto-research/** (HTTP 200)
+- `pip-audit` também executa no CI via `pypa/gh-action-pip-audit@v1.1.0`.
+
+### 11.4 Item não corrigido — Scorecard
+
+`ossf/scorecard-action@v2.4.0` é distribuído via `gcr.io`, e o pull agora falha com
+`This API method requires billing to be enabled`. O job morre ao buscar a imagem, antes de
+qualquer análise. É uma falha de infraestrutura do projeto OpenSSF, **não** um defeito do
+repositório. Foi marcado `continue-on-error: true` com justificativa no arquivo: um check
+permanentemente vermelho treina revisores a ignorá-lo. Reverter quando a action passar a
+ser publicada em um registry sem billing.
+
+### 11.5 Divergências de versão e pendência de release
+
+- `_version.py` estava **rastreado apesar de estar no `.gitignore`** e fixava `0.1.1.dev0`.
+  Removido do índice; a versão passou a resolver corretamente para `0.1.0`.
+- **PyPI: nada publicado.** `https://pypi.org/pypi/alberto-research/json` responde
+  `{"message": "Not Found"}`. O `release.yml` **nunca executou**: seu gatilho é push de tag,
+  e a tag `v0.1.0` aponta para um commit **anterior** à criação do arquivo de workflow.
+- Os badges de CI e OpenSSF Scorecard no README apontam para `gabriel-affonso/alberto-research`,
+  que agora é o repositório correto (o `Homepage`/`Repository` do `pyproject.toml` também).
+
+### 11.6 Não executado nesta revisão
+
+- Cobertura para ≥ 80 %: **não elevada**. O gate permanece em 60 % e a cobertura em 62,85 %.
+  A via de ~30 linhas está analisada em `SECURITY_AUDIT.md` §13.5, mas **não foi aplicada**,
+  porque alterá-la muda o que o gate mede e isso é decisão sua.
+- Mutation testing (`mutmut`): não executado.
+- SBOM SPDX e assinatura Sigstore: não gerados.
+- `SECURITY.md` do pacote: a contradição de §7.2 **continua ativa**. Recomendação: corrigir
+  antes de tornar o projeto amplamente divulgado.
+- Monorepo: `README.md` da raiz não recebeu o aviso legal; `production-ready` está à frente
+  de `main` e **não foi enviada** a `origin`.

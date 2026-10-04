@@ -365,12 +365,25 @@ Ou seja: o critério de aceitação "cobertura ≥ 80 %" é atingível com **~30
 
 ### 13.6 Conformidade do procedimento de migração
 
+Estado após a Revisão 3 (execução real — ver `PRODUCTION_READINESS.md` §11).
+
 | Passo prescrito (§9.2) | Executado |
 |---|---|
 | Worktree isolado; repo novo; `git init -b main` | ✅ |
-| Varredura pós-migração (`gitleaks --no-git`, trufflehog, detect-secrets) | ⚠️ não reexecutada nesta revisão |
-| Identidade pública `noreply` | ✅ |
-| `git commit -S` (assinado) | ❌ **não assinado** |
-| `git tag -s v0.1.0` (assinada e anotada) | ❌ **tag leve** |
-| `git remote add` / `git push` / configuração do GitHub | ❌ **não executados — conforme exigido** |
+| Varredura pós-migração (`gitleaks --no-git`, trufflehog, detect-secrets) | ✅ executada no `Secret Scan` do CI, **verde** |
+| Identidade pública `noreply` | ✅ verificado nos 6 commits |
+| `git commit -S` (assinado) | ❌ **não assinado** — não há chave GPG/SSH no host (ação do autor) |
+| `git tag -s v0.1.0` | ⚠️ **tag anotada, não assinada** (`%(objecttype)` = `tag`); a assinatura exige a chave ausente |
+| `git remote add` / `git push` | ✅ `main` + `v0.1.0` publicados em `gabriel-affonso/alberto-research` |
+| Configuração do GitHub (proteções, scanning) | ⚠️ Pages habilitado; branch protection, secret scanning, push protection, Dependabot e CodeQL ainda pendentes |
+
+### 13.7 Defeitos de CI revelados pela primeira execução real
+
+A afirmação anterior de que o CI estava "revisado linha a linha e validado como YAML" era
+insuficiente: **a primeira execução reprovou 100 % dos jobs**. Foram encontrados e
+corrigidos 10 defeitos (D1–D10), incluindo `uv pip install --system` incompatível com
+interpretadores gerenciados (PEP 668), venv ausente do `PATH`, flags inválidas de
+`gitleaks`/`trufflehog`, um `base`/`head` idêntico no trufflehog, Pages não habilitado e
+uma falha **exclusiva do Windows** causada por `str(Path)`. Detalhamento completo em
+`PRODUCTION_READINESS.md` §11.2. Após as correções, **todos os workflows estão verdes**.
 
