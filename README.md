@@ -225,7 +225,7 @@ Contribuições são bem-vindas. Leia [CONTRIBUTING.md](CONTRIBUTING.md) para en
 @software{alberto_research,
   title        = {Alberto Research},
   author       = {Affonso, Gabriel},
-  year         = {2025},
+  year         = {2026},
   version      = {0.1.0},
   license      = {MIT},
   url          = {https://github.com/gabriel-affonso/alberto-research},
@@ -239,7 +239,7 @@ Os metadados de citação também estão em [CITATION.cff](CITATION.cff), no for
 
 Distribuído sob a licença MIT. O texto completo está em [LICENSE](LICENSE).
 
-Copyright (c) 2025 Gabriel Affonso.
+Copyright (c) 2025–2026 Gabriel Affonso.
 
 ## Aviso legal
 

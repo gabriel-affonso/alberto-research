@@ -7,7 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.1.0] - 2025-01-01
+## [0.1.1] - 2026-10-04
+
+### Changed
+
+- Corrected public release metadata for v0.1.0 and refreshed citation details.
+- Updated the roadmap to reflect the current v0.1.0 state and document the
+  v0.2/V2 Autonomous Research Runtime direction.
+- Validated a clean-install dry-run and improved release discoverability
+  documentation.
+
+## [0.1.0] - 2026-10-03
 
 ### Added
 
@@ -29,5 +39,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The `alberto-research` command-line interface for running discovery, full-text
   resolution, screening, reading, digest generation and synchronisation.
 
-[Unreleased]: https://github.com/gabriel-affonso/alberto-research/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/gabriel-affonso/alberto-research/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/gabriel-affonso/alberto-research/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/gabriel-affonso/alberto-research/releases/tag/v0.1.0
