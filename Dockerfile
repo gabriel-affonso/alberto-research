@@ -13,7 +13,7 @@
 # -----------------------------------------------------------------------------
 # Builder
 # -----------------------------------------------------------------------------
-FROM python:3.12-slim-bookworm AS builder
+FROM python:3.14-slim-bookworm AS builder
 
 # Pin toolchain versions so rebuilds are reproducible.
 ARG PIP_VERSION=24.2
@@ -49,7 +49,7 @@ RUN pip install --no-cache-dir .
 # -----------------------------------------------------------------------------
 # Runtime
 # -----------------------------------------------------------------------------
-FROM python:3.12-slim-bookworm AS runtime
+FROM python:3.14-slim-bookworm AS runtime
 
 ARG BUILD_VERSION=0.0.0
 ARG VCS_REF=unknown
