@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # Fails the PR when a newly introduced/updated dependency carries a
       # known vulnerability of high severity or worse.
